@@ -12,7 +12,7 @@ name = "syster-lsp"
 path = "src/main.rs"
 
 [dependencies]
-syster-base = { git = "https://github.com/jade-codes/syster-base.git", branch = "main" }
+syster-base = { git = "https://github.com/jade-codes/syster-base.git" }
 async-lsp = { version = "0.2", features = ["tokio", "tracing"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["compat"] }
