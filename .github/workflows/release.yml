@@ -11,6 +11,9 @@ on:
 
 jobs:
   rust-release:
+    permissions:
+      contents: write
+      id-token: write
     uses: jade-codes/syster-pipelines/.github/workflows/rust-release.yml@main
     with:
       crates: 'syster-lsp'
