@@ -1,9 +1,10 @@
+use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
 use async_lsp::lsp_types::Url;
 
 #[test]
 fn test_document_links_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "";
 
@@ -15,7 +16,7 @@ fn test_document_links_empty_file() {
 
 #[test]
 fn test_document_links_no_imports() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -33,9 +34,6 @@ fn test_document_links_no_imports() {
 fn test_document_links_with_stdlib_import() {
     // Need stdlib loaded for this test to work
     let stdlib_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("syster-base")
         .join("sysml.library");
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
@@ -77,7 +75,7 @@ classifier TestClass {
 
 #[test]
 fn test_document_links_kerml_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a base file to import from
     let base_uri = Url::parse("file:///base.kerml").unwrap();
@@ -122,7 +120,7 @@ classifier TestClass {
 
 #[test]
 fn test_document_links_sysml_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a base file to import from
     let base_uri = Url::parse("file:///base.sysml").unwrap();
@@ -160,7 +158,7 @@ package TestPkg {
 
 #[test]
 fn test_document_links_wildcard_import() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a base file to import from
     let base_uri = Url::parse("file:///base.kerml").unwrap();
@@ -205,7 +203,7 @@ classifier TestClass {
 
 #[test]
 fn test_document_links_multiple_imports() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create two base files
     let base1_uri = Url::parse("file:///base1.kerml").unwrap();
@@ -246,7 +244,7 @@ classifier TestClass {
 
 #[test]
 fn test_document_links_nonexistent_import() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a file that imports something that doesn't exist
     let test_uri = Url::parse("file:///test.kerml").unwrap();
@@ -269,7 +267,7 @@ package TestPkg {
 
 #[test]
 fn test_document_links_invalid_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let links = server.get_document_links(&uri);
@@ -286,7 +284,7 @@ fn test_document_links_invalid_file() {
 
 #[test]
 fn test_document_links_specialization() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a base file with a definition
     let base_uri = Url::parse("file:///base.sysml").unwrap();
@@ -326,7 +324,7 @@ package Test {
 
 #[test]
 fn test_document_links_typing() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a base file with a definition
     let base_uri = Url::parse("file:///base.sysml").unwrap();
@@ -366,7 +364,7 @@ package Test {
 
 #[test]
 fn test_document_links_subsetting() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a file with subsetting
     let test_uri = Url::parse("file:///test.sysml").unwrap();
@@ -399,7 +397,7 @@ package Test {
 
 #[test]
 fn test_document_links_multiple_type_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create base definitions
     let base_uri = Url::parse("file:///base.sysml").unwrap();

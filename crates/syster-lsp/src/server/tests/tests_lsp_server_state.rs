@@ -5,6 +5,7 @@
 //!
 //! Note: We test through the public LanguageServer trait API, not internal methods.
 
+use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
 use crate::server::formatting::*;
 use async_lsp::lsp_types::*;
@@ -20,7 +21,7 @@ struct TestServerState {
 impl TestServerState {
     fn new() -> Self {
         Self {
-            server: LspServer::new(),
+            server: create_server(),
         }
     }
 

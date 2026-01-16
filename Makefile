@@ -52,8 +52,8 @@ run-guidelines:
 	@cargo clippy --all-targets -- -D warnings
 	@echo "✓ Linting passed"
 	@echo ""
-	@echo "Step 3/3: Running tests..."
-	@cargo test
+	@echo "Step 3/3: Running tests (limited parallelism for CI)..."
+	@cargo test -- --test-threads=4
 	@echo ""
 	@echo "=== ✓ All guidelines passed! ==="
 

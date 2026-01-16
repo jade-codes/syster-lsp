@@ -1,3 +1,4 @@
+use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
 use async_lsp::lsp_types::{
     DiagnosticSeverity, HoverContents, MarkedString, Position, PrepareRenameResponse, Url,
@@ -7,13 +8,13 @@ use syster::semantic::symbol_table::Symbol;
 
 #[test]
 fn test_server_creation() {
-    let server = LspServer::new();
+    let server = create_server();
     assert_eq!(server.workspace().file_count(), 0);
 }
 
 #[test]
 fn test_open_sysml_document() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -32,7 +33,7 @@ fn test_open_sysml_document() {
 
 #[test]
 fn test_open_invalid_sysml() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "invalid syntax !@#$%";
 
@@ -51,7 +52,7 @@ fn test_open_invalid_sysml() {
 
 #[test]
 fn test_open_unsupported_extension() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.txt").unwrap();
     let text = "some text";
 
@@ -62,7 +63,7 @@ fn test_open_unsupported_extension() {
 
 #[test]
 fn test_open_kerml_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.kerml").unwrap();
     let text = "classifier Vehicle;";
 
@@ -74,7 +75,7 @@ fn test_open_kerml_file() {
 
 #[test]
 fn test_change_document() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open initial document
@@ -94,7 +95,7 @@ fn test_change_document() {
 
 #[test]
 fn test_references_update_after_change_document() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document with a definition and usage
@@ -137,7 +138,7 @@ part car : VehicleA;
 
 #[test]
 fn test_references_break_when_definition_renamed_without_usages() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document with a definition and usage
@@ -173,7 +174,7 @@ part car : Vehicle;
 
 #[test]
 fn test_change_document_with_error() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open valid document
@@ -194,7 +195,7 @@ fn test_change_document_with_error() {
 
 #[test]
 fn test_change_nonexistent_document() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Try to change a document that was never opened
@@ -205,7 +206,7 @@ fn test_change_nonexistent_document() {
 
 #[test]
 fn test_close_document() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open and close document
@@ -218,7 +219,7 @@ fn test_close_document() {
 
 #[test]
 fn test_get_diagnostics_for_valid_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -233,7 +234,7 @@ fn test_get_diagnostics_for_valid_file() {
 
 #[test]
 fn test_get_diagnostics_for_parse_error() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def invalid syntax";
 
@@ -250,7 +251,7 @@ fn test_get_diagnostics_for_parse_error() {
 
 #[test]
 fn test_get_diagnostics_clears_on_fix() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open with error
@@ -269,7 +270,7 @@ fn test_get_diagnostics_clears_on_fix() {
 
 #[test]
 fn test_get_diagnostics_for_nonexistent_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let diagnostics = server.get_diagnostics(&uri);
@@ -281,7 +282,7 @@ fn test_get_diagnostics_for_nonexistent_file() {
 
 #[test]
 fn test_hover_on_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -308,7 +309,7 @@ fn test_hover_on_symbol() {
 
 #[test]
 fn test_hover_on_whitespace() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -330,7 +331,7 @@ fn test_hover_on_whitespace() {
 
 #[test]
 fn test_hover_on_unknown_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;\npart def Car;";
 
@@ -369,7 +370,7 @@ fn test_hover_on_unknown_symbol() {
 
 #[test]
 fn test_hover_multiline() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;\npart def Car;";
 
@@ -394,7 +395,7 @@ fn test_hover_multiline() {
 
 #[test]
 fn test_hover_with_index() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Vehicle;
 part def Car :> Vehicle;
@@ -447,7 +448,7 @@ part myCar: Car;"#;
 
 #[test]
 fn test_hover_shows_precise_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -475,7 +476,7 @@ fn test_hover_shows_precise_range() {
 
 #[test]
 fn test_goto_definition_same_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Car;
 part myCar : Car;"#;
@@ -503,7 +504,7 @@ part myCar : Car;"#;
 
 #[test]
 fn test_goto_definition_on_definition() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -528,7 +529,7 @@ fn test_goto_definition_on_definition() {
 
 #[test]
 fn test_goto_definition_unknown_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Car;";
 
@@ -548,7 +549,7 @@ fn test_goto_definition_unknown_symbol() {
 
 #[test]
 fn test_goto_definition_nested_elements() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Automotive {
     part def Engine;
@@ -576,7 +577,7 @@ fn test_goto_definition_nested_elements() {
 
 #[test]
 fn test_find_references_same_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Car;
 part myCar : Car;
@@ -614,7 +615,7 @@ part yourCar : Car;"#;
 
 #[test]
 fn test_find_references_from_usage() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Vehicle;
 part myVehicle : Vehicle;"#;
@@ -640,7 +641,7 @@ part myVehicle : Vehicle;"#;
 
 #[test]
 fn test_find_references_exclude_declaration() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Engine;
 part myEngine : Engine;"#;
@@ -667,7 +668,7 @@ part myEngine : Engine;"#;
 
 #[test]
 fn test_find_references_no_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def UnusedType;
 part myPart;"#;
@@ -692,7 +693,7 @@ part myPart;"#;
 
 #[test]
 fn test_find_references_nested_elements() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Auto {
     part def Wheel;
@@ -746,7 +747,7 @@ fn test_find_references_nested_elements() {
 // Edge case tests for references
 #[test]
 fn test_references_with_include_declaration() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -783,7 +784,7 @@ package Test {
 
 #[test]
 fn test_references_exclude_declaration() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -824,7 +825,7 @@ package Test {
 
 #[test]
 fn test_references_across_files() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // File 1: Define type
     let file1_uri = Url::parse("file:///types.sysml").unwrap();
@@ -884,7 +885,7 @@ package Usage {
 #[test]
 #[ignore = "Requires proper scope resolution in ReferenceIndex"]
 fn test_references_qualified_name_fallback() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Outer {
@@ -927,7 +928,7 @@ package Outer {
 
 #[test]
 fn test_references_symbol_not_found() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "package Test {}";
 
@@ -950,7 +951,7 @@ fn test_references_symbol_not_found() {
 #[test]
 #[ignore = "Requires proper scope resolution in ReferenceIndex"]
 fn test_references_with_shadowing() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test_shadowing.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1008,7 +1009,7 @@ package Test {
 
 #[test]
 fn test_references_to_imported_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1053,7 +1054,7 @@ package Usage {
 
 #[test]
 fn test_document_symbols() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 part def Vehicle;
@@ -1078,7 +1079,7 @@ part engine : Engine;
 
 #[test]
 fn test_document_symbols_hierarchical() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Auto {
@@ -1128,7 +1129,7 @@ package Auto {
 
 #[test]
 fn test_document_symbols_deeply_nested() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Level1 {
@@ -1181,7 +1182,7 @@ package Level1 {
 
 #[test]
 fn test_document_symbols_mixed_hierarchy() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     // Each package declaration creates its own scope
     let text = r#"
@@ -1232,7 +1233,7 @@ package Electronics {
 
 #[test]
 fn test_semantic_tokens() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Auto {
@@ -1265,7 +1266,7 @@ package Auto {
 
 #[test]
 fn test_code_completion_keywords() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "package Test {}\n";
 
@@ -1320,7 +1321,7 @@ fn test_code_completion_file_types() {
 // Edge case tests for completion
 #[test]
 fn test_completion_filters_by_context() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1356,7 +1357,7 @@ package Test {
 
 #[test]
 fn test_completion_includes_imported_symbols() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     let file1_uri = Url::parse("file:///types.sysml").unwrap();
     let file1_text = r#"
@@ -1395,7 +1396,7 @@ package Usage {
 
 #[test]
 fn test_completion_respects_scope() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Outer {
@@ -1434,7 +1435,7 @@ package Outer {
 
 #[test]
 fn test_completion_after_specializes_suggests_compatible_types() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1466,7 +1467,7 @@ package Test {
 
 #[test]
 fn test_completion_in_incomplete_expression() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1498,7 +1499,7 @@ package Test {
 
 #[test]
 fn test_completion_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "";
 
@@ -1525,7 +1526,7 @@ fn test_completion_empty_file() {
 
 #[test]
 fn test_completion_handles_invalid_position() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "package Test {}";
 
@@ -1546,7 +1547,7 @@ fn test_completion_handles_invalid_position() {
 
 #[test]
 fn test_rename_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package TestPkg {
@@ -1581,7 +1582,7 @@ package TestPkg {
 
 #[test]
 fn test_rename_from_usage() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package TestPkg {
@@ -1616,7 +1617,7 @@ package TestPkg {
 // Edge case tests for rename
 #[test]
 fn test_rename_across_multiple_files() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // File 1: Define the type
     let file1_uri = Url::parse("file:///types.sysml").unwrap();
@@ -1679,7 +1680,7 @@ package Usage {
 
 #[test]
 fn test_rename_qualified_name() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Outer {
@@ -1728,7 +1729,7 @@ package Outer {
 
 #[test]
 fn test_rename_nonexistent_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "package Test {}";
 
@@ -1747,7 +1748,7 @@ fn test_rename_nonexistent_symbol() {
 
 #[test]
 fn test_rename_with_no_usages() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1786,7 +1787,7 @@ package Test {
 
 #[test]
 fn test_rename_preserves_other_symbols() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -1839,7 +1840,7 @@ package Test {
 
 #[test]
 fn test_prepare_rename_on_definition() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package TestPkg {
@@ -1867,7 +1868,7 @@ package TestPkg {
 
 #[test]
 fn test_prepare_rename_on_usage() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package TestPkg {
@@ -1887,7 +1888,7 @@ package TestPkg {
 
 #[test]
 fn test_prepare_rename_nonexistent_symbol() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package TestPkg {
@@ -1906,7 +1907,7 @@ package TestPkg {
 
 #[test]
 fn test_prepare_rename_returns_correct_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def MyVeryLongPartName;"#;
 
@@ -1934,7 +1935,7 @@ fn test_cross_file_reference_resolution_basic() {
     // Test cross-file reference resolution at the workspace/symbol table level
     // This is the foundational layer - if this doesn't work, nothing above it will
 
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // File 1: Define a type
     let file1_uri = Url::parse("file:///base.sysml").unwrap();
@@ -2301,7 +2302,7 @@ package TestPkg {
 
 #[test]
 fn test_incremental_insert_at_start() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document
@@ -2338,7 +2339,7 @@ fn test_incremental_insert_at_start() {
 
 #[test]
 fn test_incremental_insert_in_middle() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document with two definitions
@@ -2367,7 +2368,7 @@ fn test_incremental_insert_in_middle() {
 
 #[test]
 fn test_incremental_delete_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document
@@ -2395,7 +2396,7 @@ fn test_incremental_delete_range() {
 
 #[test]
 fn test_incremental_replace_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document
@@ -2423,7 +2424,7 @@ fn test_incremental_replace_range() {
 
 #[test]
 fn test_incremental_multiple_changes() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document
@@ -2462,7 +2463,7 @@ fn test_incremental_multiple_changes() {
 
 #[test]
 fn test_incremental_multiline_insert() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document
@@ -2490,7 +2491,7 @@ fn test_incremental_multiline_insert() {
 
 #[test]
 fn test_incremental_change_preserves_diagnostics() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open valid document
@@ -2517,7 +2518,7 @@ fn test_incremental_change_preserves_diagnostics() {
 
 #[test]
 fn test_incremental_change_updates_semantic_tokens() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document with a part definition
@@ -2563,7 +2564,7 @@ fn test_incremental_change_updates_semantic_tokens() {
 
 #[test]
 fn test_incremental_change_updates_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document with a definition and usage
@@ -2601,7 +2602,7 @@ fn test_incremental_change_updates_references() {
 
 #[test]
 fn test_open_document_provides_semantic_tokens() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///new_file.sysml").unwrap();
 
     // Open a new document
@@ -2621,7 +2622,7 @@ fn test_open_document_provides_semantic_tokens() {
 
 #[test]
 fn test_new_file_then_incremental_update() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///brand_new.sysml").unwrap();
 
     // Open a brand new file
@@ -2667,7 +2668,7 @@ fn test_new_file_then_incremental_update() {
 
 #[test]
 fn test_incremental_change_on_unopened_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///never_opened.sysml").unwrap();
 
     // File was never opened with did_open, but client sends an incremental change
@@ -2704,7 +2705,7 @@ fn test_incremental_change_on_unopened_file() {
 
 #[test]
 fn test_incremental_insert_at_end_of_document() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     // Open document with multiple lines
@@ -2734,7 +2735,7 @@ fn test_incremental_insert_at_end_of_document() {
 }
 #[test]
 fn test_folding_ranges_for_definitions() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package TestPackage {
     part def Vehicle {
@@ -2762,7 +2763,7 @@ fn test_folding_ranges_for_definitions() {
 
 #[test]
 fn test_folding_ranges_no_single_line() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Car; part def Truck;";
 
@@ -2783,7 +2784,7 @@ fn test_folding_ranges_no_single_line() {
 
 #[test]
 fn test_folding_ranges_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///empty.sysml").unwrap();
     let text = "";
 
@@ -2800,7 +2801,7 @@ fn test_folding_ranges_empty_file() {
 
 #[test]
 fn test_folding_ranges_simple_package() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -2822,7 +2823,7 @@ fn test_folding_ranges_simple_package() {
 
 #[test]
 fn test_folding_ranges_nested_packages() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Outer {
     package Inner {
@@ -2857,7 +2858,7 @@ fn test_folding_ranges_nested_packages() {
 
 #[test]
 fn test_folding_ranges_part_def_with_body() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Vehicle {
     attribute weight : Real;
@@ -2884,7 +2885,7 @@ fn test_folding_ranges_part_def_with_body() {
 
 #[test]
 fn test_folding_ranges_attribute_def_with_body() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"attribute def Temperature {
     attribute unit : TemperatureUnit;
@@ -2904,7 +2905,7 @@ fn test_folding_ranges_attribute_def_with_body() {
 
 #[test]
 fn test_folding_ranges_multiline_comments() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"/* This is a
    multiline
@@ -2938,7 +2939,7 @@ part def Vehicle;"#;
 
 #[test]
 fn test_folding_ranges_mixed_content() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"/* Header comment
    with multiple lines */
@@ -2972,7 +2973,7 @@ package Test {
 
 #[test]
 fn test_folding_ranges_deeply_nested() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Level1 {
     package Level2 {
@@ -3005,7 +3006,7 @@ fn test_folding_ranges_deeply_nested() {
 
 #[test]
 fn test_folding_ranges_nonexistent_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let path = std::path::Path::new("/nonexistent.sysml");
     let ranges = server.get_folding_ranges(path);
 
@@ -3017,7 +3018,7 @@ fn test_folding_ranges_nonexistent_file() {
 
 #[test]
 fn test_folding_ranges_multiple_top_level_elements() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Package1 {
     part def Vehicle;
@@ -3050,7 +3051,7 @@ package Package3 {
 
 #[test]
 fn test_folding_ranges_with_imports() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     import Base::Vehicle;
@@ -3077,7 +3078,7 @@ fn test_folding_ranges_with_imports() {
 
 #[test]
 fn test_folding_ranges_action_def() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"action def Drive {
     in part vehicle : Vehicle;
@@ -3101,7 +3102,7 @@ fn test_folding_ranges_action_def() {
 
 #[test]
 fn test_folding_ranges_requirement_def() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"requirement def SafetyRequirement {
     doc /* Safety requirements
@@ -3125,7 +3126,7 @@ fn test_folding_ranges_requirement_def() {
 
 #[test]
 fn test_folding_ranges_maintains_character_positions() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -3151,7 +3152,7 @@ fn test_folding_ranges_maintains_character_positions() {
 
 #[test]
 fn test_folding_ranges_sorted_output() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Z {
     part def Vehicle;
@@ -3181,7 +3182,7 @@ package M {
 
 #[test]
 fn test_folding_ranges_connection_def() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"connection def WireConnection {
     end source : Port;
@@ -3203,7 +3204,7 @@ fn test_folding_ranges_connection_def() {
 
 #[test]
 fn test_folding_ranges_interface_def() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"interface def VehicleInterface {
     port driver : DriverPort;
@@ -3225,7 +3226,7 @@ fn test_folding_ranges_interface_def() {
 
 #[test]
 fn test_folding_ranges_enumeration_def() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"enum def TrafficLight {
     enum red;
@@ -3246,7 +3247,7 @@ fn test_folding_ranges_enumeration_def() {
 
 #[test]
 fn test_folding_ranges_whitespace_only() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "   \n\n   \n   ";
 
@@ -3263,7 +3264,7 @@ fn test_folding_ranges_whitespace_only() {
 
 #[test]
 fn test_workspace_symbols_query() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     let uri1 = Url::parse("file:///symbols1.sysml").unwrap();
     let uri2 = Url::parse("file:///symbols2.sysml").unwrap();

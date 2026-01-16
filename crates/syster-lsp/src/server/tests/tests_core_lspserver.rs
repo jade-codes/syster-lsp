@@ -9,6 +9,7 @@
 //!
 //! Tests cover both success and edge cases through the public API.
 
+use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
 use async_lsp::lsp_types::*;
 use std::path::Path;
@@ -19,7 +20,7 @@ use std::path::Path;
 
 #[test]
 fn test_folding_ranges_basic_package() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package TestPackage {
     part def Vehicle {
@@ -54,7 +55,7 @@ fn test_folding_ranges_basic_package() {
 
 #[test]
 fn test_folding_ranges_nested_structures() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Outer {
     package Inner {
@@ -86,7 +87,7 @@ fn test_folding_ranges_nested_structures() {
 
 #[test]
 fn test_folding_ranges_single_line_no_fold() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Car;";
 
@@ -103,7 +104,7 @@ fn test_folding_ranges_single_line_no_fold() {
 
 #[test]
 fn test_folding_ranges_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "";
 
@@ -120,7 +121,7 @@ fn test_folding_ranges_empty_file() {
 
 #[test]
 fn test_folding_ranges_nonexistent_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let path = Path::new("/nonexistent.sysml");
     let ranges = server.get_folding_ranges(path);
 
@@ -133,7 +134,7 @@ fn test_folding_ranges_nonexistent_file() {
 
 #[test]
 fn test_folding_ranges_multiple_top_level_elements() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Pkg1 {
     part def Car;
@@ -156,7 +157,7 @@ package Pkg2 {
 
 #[test]
 fn test_folding_ranges_with_comments() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"/* Multi-line
    comment block */
@@ -186,7 +187,7 @@ package TestPkg {
 
 #[test]
 fn test_folding_ranges_character_positions() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -292,7 +293,7 @@ fn test_semantic_tokens_legend_no_modifiers() {
 
 #[test]
 fn test_semantic_tokens_basic_package() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package TestPkg {
     part def Vehicle;
@@ -327,7 +328,7 @@ fn test_semantic_tokens_basic_package() {
 
 #[test]
 fn test_semantic_tokens_multiple_symbols() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Auto {
     part def Vehicle;
@@ -353,7 +354,7 @@ fn test_semantic_tokens_multiple_symbols() {
 
 #[test]
 fn test_semantic_tokens_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "";
 
@@ -372,7 +373,7 @@ fn test_semantic_tokens_empty_file() {
 
 #[test]
 fn test_semantic_tokens_nonexistent_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
     let result = server.get_semantic_tokens(&uri);
 
@@ -382,7 +383,7 @@ fn test_semantic_tokens_nonexistent_file() {
 
 #[test]
 fn test_semantic_tokens_with_index() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Base;
@@ -408,7 +409,7 @@ fn test_semantic_tokens_with_index() {
 
 #[test]
 fn test_semantic_tokens_utf16_encoding() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     // Test with unicode characters that have different UTF-8 and UTF-16 lengths
     // Note: Pest parser may not handle all unicode in identifiers
@@ -429,7 +430,7 @@ fn test_semantic_tokens_utf16_encoding() {
 
 #[test]
 fn test_semantic_tokens_multiline_structure() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -468,7 +469,7 @@ fn test_semantic_tokens_multiline_structure() {
 
 #[test]
 fn test_selection_ranges_basic_element() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -489,7 +490,7 @@ fn test_selection_ranges_basic_element() {
 
 #[test]
 fn test_selection_ranges_multiple_positions() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -514,7 +515,7 @@ fn test_selection_ranges_multiple_positions() {
 
 #[test]
 fn test_selection_ranges_nested_structure() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -549,7 +550,7 @@ fn test_selection_ranges_nested_structure() {
 
 #[test]
 fn test_selection_ranges_out_of_bounds() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -571,7 +572,7 @@ fn test_selection_ranges_out_of_bounds() {
 
 #[test]
 fn test_selection_ranges_nonexistent_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let path = Path::new("/nonexistent.sysml");
     let positions = vec![Position::new(0, 0)];
 
@@ -595,7 +596,7 @@ fn test_selection_ranges_nonexistent_file() {
 
 #[test]
 fn test_selection_ranges_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "";
 
@@ -615,7 +616,7 @@ fn test_selection_ranges_empty_file() {
 
 #[test]
 fn test_selection_ranges_chain_ordering() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Outer {
     package Inner {
@@ -655,7 +656,7 @@ fn test_selection_ranges_chain_ordering() {
 
 #[test]
 fn test_selection_ranges_whitespace_position() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "    part def Vehicle;";
 
@@ -671,7 +672,7 @@ fn test_selection_ranges_whitespace_position() {
 
 #[test]
 fn test_selection_ranges_between_elements() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"part def Car;
 
@@ -693,7 +694,7 @@ part def Truck;"#;
 
 #[test]
 fn test_inlay_hints_basic_structure() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -729,7 +730,7 @@ fn test_inlay_hints_basic_structure() {
 
 #[test]
 fn test_inlay_hints_empty_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "";
 
@@ -752,7 +753,7 @@ fn test_inlay_hints_empty_file() {
 
 #[test]
 fn test_inlay_hints_nonexistent_file() {
-    let server = LspServer::new();
+    let server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let params = InlayHintParams {
@@ -772,7 +773,7 @@ fn test_inlay_hints_nonexistent_file() {
 
 #[test]
 fn test_inlay_hints_specific_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -806,7 +807,7 @@ fn test_inlay_hints_specific_range() {
 
 #[test]
 fn test_inlay_hints_type_annotations() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -835,7 +836,7 @@ fn test_inlay_hints_type_annotations() {
 
 #[test]
 fn test_inlay_hints_padding_fields() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -872,7 +873,7 @@ fn test_inlay_hints_padding_fields() {
 
 #[test]
 fn test_inlay_hints_out_of_bounds_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -896,7 +897,7 @@ fn test_inlay_hints_out_of_bounds_range() {
 
 #[test]
 fn test_inlay_hints_parameter_hints() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     action def ProcessData {
@@ -925,7 +926,7 @@ fn test_inlay_hints_parameter_hints() {
 
 #[test]
 fn test_folding_ranges_kerml_file() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.kerml").unwrap();
     let text = r#"class Vehicle {
     feature weight : Real;
@@ -950,7 +951,7 @@ fn test_folding_ranges_kerml_file() {
 
 #[test]
 fn test_folding_ranges_only_comments() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"/* This is a
    multi-line comment
@@ -976,7 +977,7 @@ fn test_folding_ranges_only_comments() {
 
 #[test]
 fn test_folding_ranges_mixed_kerml_sysml_syntax() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Mixed {
     part def Vehicle {
@@ -999,7 +1000,7 @@ fn test_folding_ranges_mixed_kerml_sysml_syntax() {
 
 #[test]
 fn test_folding_ranges_comment_validity() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"/* Block comment
    line 2
@@ -1027,7 +1028,7 @@ package Test {
 
 #[test]
 fn test_folding_ranges_has_region_kinds() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package TestPkg {
     part def Vehicle {
@@ -1056,7 +1057,7 @@ fn test_folding_ranges_has_region_kinds() {
 
 #[test]
 fn test_folding_ranges_deeply_nested_packages() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Level1 {
     package Level2 {
@@ -1082,7 +1083,7 @@ fn test_folding_ranges_deeply_nested_packages() {
 
 #[test]
 fn test_folding_ranges_line_boundaries() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def A;
@@ -1117,7 +1118,7 @@ package Test2 {
 
 #[test]
 fn test_folding_ranges_sort_stability() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package A { part def X; }
 package B { part def Y; }
@@ -1138,7 +1139,7 @@ package C { part def Z; }"#;
 
 #[test]
 fn test_folding_ranges_with_attributes() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -1165,7 +1166,7 @@ fn test_folding_ranges_with_attributes() {
 
 #[test]
 fn test_inlay_hints_multiple_files() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri1 = Url::parse("file:///test1.sysml").unwrap();
     let uri2 = Url::parse("file:///test2.sysml").unwrap();
     let text1 = r#"package Test {
@@ -1213,7 +1214,7 @@ fn test_inlay_hints_multiple_files() {
 
 #[test]
 fn test_inlay_hints_zero_width_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -1240,7 +1241,7 @@ fn test_inlay_hints_zero_width_range() {
 
 #[test]
 fn test_inlay_hints_multiline_range() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -1271,7 +1272,7 @@ fn test_inlay_hints_multiline_range() {
 
 #[test]
 fn test_inlay_hints_kind_assignment() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -1306,7 +1307,7 @@ fn test_inlay_hints_kind_assignment() {
 
 #[test]
 fn test_inlay_hints_position_accuracy() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part car : Vehicle;
@@ -1344,7 +1345,7 @@ fn test_inlay_hints_position_accuracy() {
 
 #[test]
 fn test_inlay_hints_label_format() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -1383,7 +1384,7 @@ fn test_inlay_hints_label_format() {
 
 #[test]
 fn test_selection_ranges_at_line_start() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -1403,7 +1404,7 @@ fn test_selection_ranges_at_line_start() {
 
 #[test]
 fn test_selection_ranges_at_line_end() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -1420,7 +1421,7 @@ fn test_selection_ranges_at_line_end() {
 
 #[test]
 fn test_selection_ranges_default_range_validity() {
-    let server = LspServer::new();
+    let server = create_server();
     let path = Path::new("/nonexistent.sysml");
     let positions = vec![Position::new(5, 10), Position::new(10, 20)];
     let positions_copy = positions.clone();
@@ -1448,7 +1449,7 @@ fn test_selection_ranges_default_range_validity() {
 
 #[test]
 fn test_selection_ranges_build_chain_single_span() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def V;";
 
@@ -1511,7 +1512,7 @@ fn test_selection_ranges_build_chain_single_span() {
 
 #[test]
 fn test_selection_ranges_build_chain_ordering() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Outer {
     package Middle {
@@ -1552,7 +1553,7 @@ fn test_selection_ranges_build_chain_ordering() {
 
 #[test]
 fn test_selection_ranges_multiple_positions_independence() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def A;
@@ -1589,7 +1590,7 @@ fn test_selection_ranges_multiple_positions_independence() {
 
 #[test]
 fn test_selection_ranges_chain_parent_exists() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle {
@@ -1625,7 +1626,7 @@ fn test_selection_ranges_chain_parent_exists() {
 
 #[test]
 fn test_selection_ranges_empty_positions_vec() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -1643,7 +1644,7 @@ fn test_selection_ranges_empty_positions_vec() {
 
 #[test]
 fn test_selection_ranges_same_position_multiple_times() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 
@@ -1666,7 +1667,7 @@ fn test_selection_ranges_same_position_multiple_times() {
 
 #[test]
 fn test_selection_ranges_ascii_positions() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def Vehicle;";
 

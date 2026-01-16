@@ -13,7 +13,8 @@ fn main() {
         .parent()
         .unwrap();
 
-    let stdlib_src = Path::new("../../crates/syster-base/sysml.library");
+    // Look for sysml.library in the crate directory first
+    let stdlib_src = Path::new("sysml.library");
     let stdlib_dest = target_dir.join("sysml.library");
 
     // Only copy if source exists
@@ -30,7 +31,7 @@ fn main() {
     }
 
     // Tell cargo to rerun if stdlib changes
-    println!("cargo:rerun-if-changed=../../crates/syster-base/sysml.library");
+    println!("cargo:rerun-if-changed=sysml.library");
 }
 
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {

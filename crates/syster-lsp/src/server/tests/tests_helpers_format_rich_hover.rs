@@ -9,7 +9,7 @@
 //! Both functions are tested through the public LspServer::get_hover API,
 //! as they are private helper functions.
 
-use crate::server::LspServer;
+use crate::server::tests::test_helpers::create_server;
 use async_lsp::lsp_types::{Position, Url};
 
 // ============================================================================
@@ -19,7 +19,7 @@ use async_lsp::lsp_types::{Position, Url};
 #[test]
 fn test_format_rich_hover_package_basic() {
     // Test format_rich_hover through get_hover
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package TestPackage {
@@ -47,7 +47,7 @@ package TestPackage {
 
 #[test]
 fn test_format_rich_hover_definition_with_kind() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Automotive {
@@ -72,7 +72,7 @@ package Automotive {
 
 #[test]
 fn test_format_rich_hover_usage_with_type() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -97,7 +97,7 @@ package Test {
 
 #[test]
 fn test_format_rich_hover_feature_declaration() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -127,7 +127,7 @@ package Test {
 #[test]
 fn test_format_rich_hover_without_source_file() {
     // Test that format_rich_hover handles missing source file gracefully
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = "part def SimpleType;";
 
@@ -153,7 +153,7 @@ fn test_format_rich_hover_without_source_file() {
 #[test]
 fn test_get_symbol_relationships_with_index() {
     // This tests get_symbol_relationships indirectly through format_rich_hover
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -182,7 +182,7 @@ package Test {
 #[test]
 fn test_get_symbol_relationships_no_relationships() {
     // Test symbol with no relationships
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -210,7 +210,7 @@ package Test {
 #[test]
 fn test_get_symbol_relationships_multiple_relationships() {
     // Test symbol with multiple relationships
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 package Test {
@@ -243,7 +243,7 @@ package Test {
 #[test]
 fn test_integration_hover_uses_correct_positions() {
     // Test that hover correctly uses position_to_byte_offset and span_to_lsp_range
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -267,7 +267,7 @@ fn test_integration_hover_uses_correct_positions() {
 #[test]
 fn test_integration_format_rich_hover_complete_flow() {
     // Test complete flow of format_rich_hover with real workspace
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///complete.sysml").unwrap();
     let text = r#"
 package Complete {
@@ -300,7 +300,7 @@ package Complete {
 #[test]
 fn test_integration_all_functions_with_unicode() {
     // Test all functions work correctly with Unicode
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///unicode.sysml").unwrap();
     let text = r#"package Test {
     part def Vehicle;
@@ -346,7 +346,7 @@ fn test_integration_all_functions_with_unicode() {
 #[test]
 fn test_format_rich_hover_references_with_url_encoded_filenames() {
     // Test that file names with spaces (URL-encoded) are displayed correctly
-    let mut server = LspServer::new();
+    let mut server = create_server();
 
     // Create a file with spaces in the name (simulate URL encoding)
     let uri_with_spaces = Url::parse("file:///test%20file%20name.sysml").unwrap();

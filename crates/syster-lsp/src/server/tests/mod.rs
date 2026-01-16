@@ -1,3 +1,6 @@
+// Test helpers (shared utilities for tests)
+pub mod test_helpers;
+
 // Test modules
 mod tests_code_lens;
 mod tests_core_lspserver;

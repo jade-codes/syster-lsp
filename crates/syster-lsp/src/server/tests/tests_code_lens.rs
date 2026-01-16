@@ -1,11 +1,11 @@
 //! Tests for code lens functionality
 
-use crate::server::LspServer;
+use crate::server::tests::test_helpers::create_server;
 use async_lsp::lsp_types::Url;
 
 #[test]
 fn test_code_lens_basic() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 part def Vehicle;
@@ -26,7 +26,7 @@ part car : Vehicle;
 
 #[test]
 fn test_code_lens_multiple_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 part def Vehicle;
@@ -47,7 +47,7 @@ part bike : Vehicle;
 
 #[test]
 fn test_code_lens_no_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 part def Vehicle;
@@ -64,7 +64,7 @@ part def Bike;
 
 #[test]
 fn test_code_lens_classifier() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.kerml").unwrap();
     let text = r#"
 classifier Vehicle;
@@ -83,7 +83,7 @@ classifier Car specializes Vehicle;
 
 #[test]
 fn test_code_lens_features_with_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 part def Vehicle {
@@ -113,7 +113,7 @@ part def Car specializes Vehicle {
 
 #[test]
 fn test_code_lens_invalid_uri() {
-    let server = LspServer::new();
+    let server = create_server();
     let uri = Url::parse("http://example.com/not-a-file").unwrap();
 
     let lenses = server.get_code_lenses(&uri);
@@ -124,7 +124,7 @@ fn test_code_lens_invalid_uri() {
 
 #[test]
 fn test_code_lens_usages_with_references() {
-    let mut server = LspServer::new();
+    let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
     let text = r#"
 part def Vehicle;
