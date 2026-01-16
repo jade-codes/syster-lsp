@@ -16,7 +16,7 @@ fn create_test_server_state() -> (ServerState, mpsc::UnboundedReceiver<Url>) {
 
     let state = ServerState {
         client,
-        server: LspServer::new(),
+        server: LspServer::with_config(false, None),
         parse_tx,
     };
 
