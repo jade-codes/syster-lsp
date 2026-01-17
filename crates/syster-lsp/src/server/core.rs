@@ -59,6 +59,7 @@ impl LspServer {
                 work_done_progress_options: WorkDoneProgressOptions::default(),
             })),
             document_formatting_provider: Some(OneOf::Left(true)),
+            document_range_formatting_provider: Some(OneOf::Left(true)),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(false),
                 trigger_characters: Some(

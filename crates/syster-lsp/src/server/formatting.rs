@@ -1,5 +1,5 @@
 use crate::server::LspServer;
-use crate::server::helpers::uri_to_path;
+use crate::server::helpers::{position_to_byte_offset, uri_to_path};
 use async_lsp::ResponseError;
 use async_lsp::lsp_types::*;
 use syster::syntax::formatter;
@@ -31,6 +31,32 @@ pub async fn format_document(
             // Use select! to race the work against cancellation.
             let format_task =
                 tokio::task::spawn_blocking(move || format_text(&text, options, &cancel_token));
+
+            tokio::select! {
+                result = format_task => result.unwrap_or(None),
+                _ = cancel_for_select.cancelled() => None,
+            }
+        }
+        None => None,
+    };
+
+    Ok(result)
+}
+
+/// Handle range formatting request asynchronously
+pub async fn format_range_document(
+    text_snapshot: Option<String>,
+    options: FormattingOptions,
+    cancel_token: CancellationToken,
+    range: Range,
+) -> Result<Option<Vec<TextEdit>>, ResponseError> {
+    let result = match text_snapshot {
+        Some(text) => {
+            let cancel_for_select = cancel_token.clone();
+
+            let format_task = tokio::task::spawn_blocking(move || {
+                format_range_text(&text, options, &cancel_token, range)
+            });
 
             tokio::select! {
                 result = format_task => result.unwrap_or(None),
@@ -77,6 +103,48 @@ pub fn format_text(
 
     Some(vec![TextEdit {
         range: full_document_range(text),
+        new_text: formatted,
+    }])
+}
+
+/// Format text for a given range with cancellation support
+/// Returns None if cancelled, range is invalid, or if no changes needed
+pub fn format_range_text(
+    text: &str,
+    options: FormattingOptions,
+    cancel: &CancellationToken,
+    range: Range,
+) -> Option<Vec<TextEdit>> {
+    if cancel.is_cancelled() {
+        return None;
+    }
+
+    let start_byte = position_to_byte_offset(text, range.start).ok()?;
+    let end_byte = position_to_byte_offset(text, range.end).ok()?;
+    if start_byte > end_byte || end_byte > text.len() {
+        return None;
+    }
+
+    let selected = &text[start_byte..end_byte];
+
+    let format_options = formatter::FormatOptions {
+        tab_size: options.tab_size as usize,
+        insert_spaces: options.insert_spaces,
+        print_width: 80, // Default print width
+    };
+
+    let formatted = formatter::format_async(selected, &format_options, cancel)?;
+
+    if cancel.is_cancelled() {
+        return None;
+    }
+
+    if formatted == selected {
+        return None;
+    }
+
+    Some(vec![TextEdit {
+        range,
         new_text: formatted,
     }])
 }

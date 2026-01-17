@@ -1,5 +1,5 @@
 use crate::server::formatting::*;
-use async_lsp::lsp_types::FormattingOptions;
+use async_lsp::lsp_types::{FormattingOptions, Position, Range};
 use tokio_util::sync::CancellationToken;
 
 #[test]
@@ -131,5 +131,29 @@ fn test_lsp_format_normalizes_whitespace() {
     assert!(
         !new_text.contains("def              "),
         "Should not have multiple spaces. Got: |{new_text}|"
+    );
+}
+
+#[test]
+fn test_lsp_range_format_normalizes_whitespace() {
+    let source = "package Test {\nmetadata def              ToolVariable\n}";
+    let options = FormattingOptions {
+        tab_size: 4,
+        insert_spaces: true,
+        ..Default::default()
+    };
+    let range = Range::new(Position::new(1, 0), Position::new(1, 100));
+
+    let result = format_range_text(source, options, &CancellationToken::new(), range);
+
+    assert!(result.is_some(), "range format should return Some edits");
+    let edits = result.unwrap();
+    assert_eq!(edits.len(), 1, "Should have one edit");
+    assert!(
+        edits[0]
+            .new_text
+            .contains("metadata def ToolVariable"),
+        "Range format should normalize whitespace. Got: |{}|",
+        edits[0].new_text
     );
 }
