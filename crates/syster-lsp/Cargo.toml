@@ -1,6 +1,6 @@
 [package]
 name = "syster-lsp"
-version = "0.1.8-alpha"
+version = "0.1.9-alpha"
 edition = "2024"
 authors = ["jade-codes"]
 license = "MIT"
@@ -12,7 +12,7 @@ name = "syster-lsp"
 path = "src/main.rs"
 
 [dependencies]
-syster-base = "0.1.10-alpha"
+syster-base = { git = "https://github.com/jade-codes/syster-base.git", tag = "v0.1.11-alpha" }
 async-lsp = { version = "0.2", features = ["tokio", "tracing"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["compat"] }

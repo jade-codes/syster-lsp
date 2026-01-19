@@ -9,8 +9,8 @@
 //!
 //! Tests cover both success and edge cases through the public API.
 
-use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
+use crate::server::tests::test_helpers::create_server;
 use async_lsp::lsp_types::*;
 use std::path::Path;
 

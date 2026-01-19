@@ -63,6 +63,7 @@ fn test_format_alias_with_qualified_target() {
 #[test]
 fn test_format_package_basic() {
     let symbol = Symbol::Package {
+        documentation: None,
         name: "MyPackage".to_string(),
         qualified_name: "MyPackage".to_string(),
         scope_id: 0,
@@ -82,6 +83,7 @@ fn test_format_package_basic() {
 #[test]
 fn test_format_package_nested() {
     let symbol = Symbol::Package {
+        documentation: None,
         name: "InnerPackage".to_string(),
         qualified_name: "Outer::InnerPackage".to_string(),
         scope_id: 1,
@@ -115,6 +117,7 @@ fn test_format_classifier_basic() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -136,6 +139,7 @@ fn test_format_classifier_abstract() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -159,6 +163,7 @@ fn test_format_definition_part() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -180,6 +185,7 @@ fn test_format_definition_attribute() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -201,6 +207,7 @@ fn test_format_definition_requirement() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -222,6 +229,7 @@ fn test_format_definition_action() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -243,6 +251,7 @@ fn test_format_definition_port() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -266,6 +275,7 @@ fn test_format_usage_part() {
         scope_id: 1,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -288,6 +298,7 @@ fn test_format_usage_attribute() {
         scope_id: 1,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -310,6 +321,7 @@ fn test_format_usage_action() {
         scope_id: 1,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -332,6 +344,7 @@ fn test_format_usage_port() {
         scope_id: 1,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -354,6 +367,7 @@ fn test_format_usage_requirement() {
         scope_id: 1,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -375,6 +389,7 @@ fn test_format_feature_without_type() {
         feature_type: None,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -400,6 +415,7 @@ fn test_format_feature_with_type() {
         feature_type: Some("Integer".to_string()),
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -420,6 +436,7 @@ fn test_format_feature_with_qualified_type() {
         feature_type: Some("Types::Real".to_string()),
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -435,6 +452,7 @@ fn test_format_feature_with_qualified_type() {
 #[test]
 fn test_format_with_empty_name() {
     let symbol = Symbol::Package {
+        documentation: None,
         name: "".to_string(),
         qualified_name: "".to_string(),
         scope_id: 0,
@@ -462,6 +480,7 @@ fn test_format_with_special_characters() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -485,6 +504,7 @@ fn test_format_with_very_long_name() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -499,6 +519,7 @@ fn test_format_with_very_long_name() {
 #[test]
 fn test_format_with_unicode_characters() {
     let symbol = Symbol::Package {
+        documentation: None,
         name: "包裹".to_string(), // Chinese characters for "package"
         qualified_name: "包裹".to_string(),
         scope_id: 0,
@@ -524,6 +545,7 @@ fn test_format_feature_type_with_spaces() {
         feature_type: Some("Some Complex Type".to_string()),
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -567,6 +589,7 @@ fn test_format_hover_includes_qualified_name() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -586,6 +609,7 @@ fn test_format_hover_includes_qualified_name() {
 #[test]
 fn test_format_hover_includes_source_file() {
     let symbol = Symbol::Package {
+        documentation: None,
         name: "TestPackage".to_string(),
         qualified_name: "TestPackage".to_string(),
         scope_id: 0,
@@ -610,6 +634,7 @@ fn test_format_hover_includes_source_file() {
 #[test]
 fn test_format_hover_without_source_file() {
     let symbol = Symbol::Package {
+        documentation: None,
         name: "GeneratedPackage".to_string(),
         qualified_name: "GeneratedPackage".to_string(),
         scope_id: 0,
@@ -637,6 +662,7 @@ fn test_format_hover_markdown_structure() {
         scope_id: 0,
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -677,6 +703,7 @@ fn test_format_all_symbol_variants_produce_output() {
             span: None,
         },
         Symbol::Package {
+            documentation: None,
             name: "P".to_string(),
             qualified_name: "P".to_string(),
             scope_id: 0,
@@ -691,6 +718,7 @@ fn test_format_all_symbol_variants_produce_output() {
             scope_id: 0,
             source_file: None,
             span: None,
+            documentation: None,
         },
         Symbol::Definition {
             name: "D".to_string(),
@@ -700,6 +728,7 @@ fn test_format_all_symbol_variants_produce_output() {
             scope_id: 0,
             source_file: None,
             span: None,
+            documentation: None,
         },
         Symbol::Usage {
             name: "U".to_string(),
@@ -710,6 +739,7 @@ fn test_format_all_symbol_variants_produce_output() {
             scope_id: 0,
             source_file: None,
             span: None,
+            documentation: None,
         },
         Symbol::Feature {
             name: "F".to_string(),
@@ -718,6 +748,7 @@ fn test_format_all_symbol_variants_produce_output() {
             feature_type: None,
             source_file: None,
             span: None,
+            documentation: None,
         },
     ];
 
@@ -745,6 +776,7 @@ fn test_format_definition_lowercase_kind() {
         scope_id: 0,
         source_file: None,
         span: None,
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -767,6 +799,7 @@ fn test_format_usage_lowercase_kind() {
         scope_id: 0,
         source_file: None,
         span: None,
+        documentation: None,
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
