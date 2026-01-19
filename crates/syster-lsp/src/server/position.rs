@@ -1,6 +1,6 @@
 use super::LspServer;
 use async_lsp::lsp_types::{Position, Range};
-use std::path::PathBuf;
+use std::path::Path;
 
 impl LspServer {
     /// Find the symbol at the given position using semantic information.
@@ -11,7 +11,7 @@ impl LspServer {
     /// 2. Check if cursor is on a definition → SymbolTable
     pub fn find_symbol_at_position(
         &self,
-        path: &PathBuf,
+        path: &Path,
         position: Position,
     ) -> Option<(String, Range)> {
         use super::helpers::span_to_lsp_range;
@@ -41,15 +41,14 @@ impl LspServer {
 
         // 2. Check if cursor is on a symbol definition
         for symbol in self.workspace.symbol_table().iter_symbols() {
-            if symbol.source_file() == Some(&file_path_str) {
-                if let Some(span) = symbol.span() {
-                    if span.contains(pos) {
-                        return Some((
-                            symbol.qualified_name().to_string(),
-                            span_to_lsp_range(&span),
-                        ));
-                    }
-                }
+            if symbol.source_file() == Some(&file_path_str)
+                && let Some(span) = symbol.span()
+                && span.contains(pos)
+            {
+                return Some((
+                    symbol.qualified_name().to_string(),
+                    span_to_lsp_range(&span),
+                ));
             }
         }
 
