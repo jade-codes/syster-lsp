@@ -16,8 +16,7 @@ static STDLIB_WORKSPACE: OnceLock<Workspace<SyntaxFile>> = OnceLock::new();
 /// The first call loads and populates the stdlib; subsequent calls return the cached version.
 fn get_stdlib_workspace() -> &'static Workspace<SyntaxFile> {
     STDLIB_WORKSPACE.get_or_init(|| {
-        let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("sysml.library");
+        let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
 
         let mut workspace: Workspace<SyntaxFile> = Workspace::new();
         let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
@@ -35,8 +34,7 @@ fn test_server_initialization() {
     let mut server = LspServer::with_config(false, None);
 
     // Load stdlib for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
     stdlib_loader
         .load(server.workspace_mut())
@@ -65,8 +63,7 @@ fn test_server_initialization() {
 #[test]
 fn test_ensure_workspace_loaded() {
     // Create server with explicit stdlib path for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Initially workspace should be empty
@@ -117,8 +114,7 @@ fn test_ensure_workspace_loaded() {
 #[test]
 fn test_hover_on_cross_file_symbol() {
     // Create server with explicit stdlib path for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib first
@@ -216,8 +212,7 @@ fn test_stdlib_symbols_present() {
     let mut server = LspServer::with_config(false, None);
 
     // Load stdlib for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
     stdlib_loader
         .load(server.workspace_mut())
@@ -287,8 +282,7 @@ fn test_symbol_resolution_after_population() {
     let mut server = LspServer::with_config(false, None);
 
     // Load stdlib for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
     stdlib_loader
         .load(server.workspace_mut())
@@ -822,8 +816,7 @@ fn test_timing_with_stdlib_loaded() {
     use tokio_util::sync::CancellationToken;
 
     // Create server with stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let mut server = syster_lsp::LspServer::with_config(true, Some(stdlib_path.clone()));
 
     // Load stdlib
@@ -1040,8 +1033,7 @@ fn test_lsp_hover_isq_temperature_difference_value() {
     let mut server = LspServer::with_config(false, None);
 
     // Load stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path.clone());
     stdlib_loader
         .load(server.workspace_mut())
@@ -1433,8 +1425,7 @@ fn test_hover_no_duplicates_with_stdlib_after_updates() {
         HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
     };
 
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib
@@ -1888,8 +1879,7 @@ fn test_hover_isq_massvalue() {
     use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
 
     // Create server with explicit stdlib path for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib first
@@ -1973,8 +1963,7 @@ fn test_hover_isq_massvalue() {
 #[test]
 fn test_hover_isq_massvalue_extension_stdlib() {
     // Use the stdlib path from syster-base
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
 
     println!("Using stdlib path: {stdlib_path:?}");
     assert!(stdlib_path.exists(), "Extension stdlib path should exist");
@@ -2046,8 +2035,7 @@ fn test_semantic_tokens_for_requirement_derivation_file() {
     use syster::semantic::processors::SemanticTokenCollector;
 
     // Create server with explicit stdlib path
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
 
     let mut server = LspServer::with_config(true, Some(stdlib_path.clone()));
     server.set_workspace_folders(vec![]);
@@ -2128,8 +2116,7 @@ fn test_semantic_tokens_via_lsp_for_stdlib_file() {
     use async_lsp::lsp_types::Url;
 
     // Create server with explicit stdlib path
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
 
     let mut server = LspServer::with_config(true, Some(stdlib_path.clone()));
     server.set_workspace_folders(vec![]);
@@ -2197,4 +2184,95 @@ fn test_semantic_tokens_via_lsp_for_stdlib_file() {
         result.is_some(),
         "LSP should return semantic tokens for RequirementDerivation.sysml"
     );
+}
+
+/// Test that hover works on types imported via wildcard imports (e.g., `import ScalarValues::*`)
+///
+/// This test verifies that when a user imports a library with `*` and uses a type like `String`,
+/// hovering over that type should show documentation from the imported library.
+///
+/// Example:
+/// ```sysml
+/// library package AHFProfileLib {
+///     private import ScalarValues::*;
+///     port def SD {
+///         attribute serviceDefinition: String;  // <-- hover on String should work
+///     }
+/// }
+/// ```
+#[test]
+fn test_hover_on_type_from_wildcard_import() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server with stdlib enabled
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
+
+    // Load stdlib first
+    server
+        .ensure_workspace_loaded()
+        .expect("Should load stdlib");
+
+    // User's SysML file that imports ScalarValues
+    let user_code = r#"library package AHFProfileLib {
+    private import ScalarValues::*;
+
+    port def SD {
+        doc /* Service definition */
+
+        attribute serviceDefinition: String;
+        attribute serviceURL: String;
+        attribute intrfce_protocol: String;
+    }
+}"#;
+
+    let file_path = PathBuf::from("/test/ahf_profile.sysml");
+    let uri = Url::from_file_path(&file_path).expect("Should create URI");
+
+    // Open the document
+    server
+        .open_document(&uri, user_code)
+        .expect("Should open document");
+
+    // Verify stdlib was loaded
+    let resolver = server.resolver();
+    let scalar_string = resolver.resolve_qualified("ScalarValues::String");
+    assert!(
+        scalar_string.is_some(),
+        "ScalarValues::String should exist in stdlib"
+    );
+
+    // Find "String" in the first attribute line - position is on line 6 (0-indexed)
+    // Line: "        attribute serviceDefinition: String;"
+    // "String" starts at column 37
+    let position = Position {
+        line: 6,
+        character: 38, // Middle of "String"
+    };
+
+    // Get hover at that position
+    let hover_result = server.get_hover(&uri, position);
+
+    // The hover should return information about the String type
+    assert!(
+        hover_result.is_some(),
+        "Hover should return information for String type imported via ScalarValues::*"
+    );
+
+    if let Some(hover) = &hover_result {
+        let content = match &hover.contents {
+            async_lsp::lsp_types::HoverContents::Scalar(
+                async_lsp::lsp_types::MarkedString::String(s),
+            ) => s.clone(),
+            async_lsp::lsp_types::HoverContents::Markup(markup) => markup.value.clone(),
+            _ => String::new(),
+        };
+
+        // Verify hover contains useful information about String
+        assert!(
+            content.contains("String") || content.contains("ScalarValues"),
+            "Hover should mention String type or ScalarValues library. Got: {}",
+            content
+        );
+    }
 }

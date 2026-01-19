@@ -1,5 +1,5 @@
-use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
+use crate::server::tests::test_helpers::create_server;
 use async_lsp::lsp_types::Url;
 
 #[test]
@@ -33,8 +33,7 @@ fn test_document_links_no_imports() {
 #[test]
 fn test_document_links_with_stdlib_import() {
     // Need stdlib loaded for this test to work
-    let stdlib_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("sysml.library");
+    let stdlib_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib

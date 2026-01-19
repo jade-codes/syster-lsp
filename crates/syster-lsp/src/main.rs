@@ -389,7 +389,8 @@ impl ServerState {
                 .as_ref()
                 .and_then(|uri| Url::parse(uri).ok())
                 .and_then(|url| url.to_file_path().ok());
-            let result = state.server.get_diagram(file_path.as_deref());
+            let view_type = &params.view_type;
+            let result = state.server.get_diagram(file_path.as_deref(), view_type);
             Box::pin(async move { Ok(result) })
         });
 

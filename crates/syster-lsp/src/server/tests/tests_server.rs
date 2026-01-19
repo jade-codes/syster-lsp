@@ -1,5 +1,5 @@
-use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
+use crate::server::tests::test_helpers::create_server;
 use async_lsp::lsp_types::{
     DiagnosticSeverity, HoverContents, MarkedString, Position, PrepareRenameResponse, Url,
 };
@@ -2222,7 +2222,13 @@ fn test_dimension_one_unit_cross_file_resolution() {
         .symbol_table()
         .iter_symbols()
         .filter_map(|sym| {
-            if matches!(sym, Symbol::Package { .. }) {
+            if matches!(
+                sym,
+                Symbol::Package {
+                    documentation: None,
+                    ..
+                }
+            ) {
                 Some(sym.qualified_name().to_string())
             } else {
                 None

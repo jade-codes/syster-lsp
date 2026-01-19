@@ -5,9 +5,9 @@
 //!
 //! Note: We test through the public LanguageServer trait API, not internal methods.
 
-use crate::server::tests::test_helpers::create_server;
 use crate::server::LspServer;
 use crate::server::formatting::*;
+use crate::server::tests::test_helpers::create_server;
 use async_lsp::lsp_types::*;
 
 /// Helper struct to create a ServerState for testing

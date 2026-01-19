@@ -213,6 +213,13 @@ pub fn format_rich_hover(
     result.push_str(&format_symbol_declaration(symbol));
     result.push_str("\n```\n");
 
+    // Documentation (if any)
+    if let Some(doc) = symbol.documentation()
+        && !doc.is_empty()
+    {
+        result.push_str(&format!("\n{}\n", doc));
+    }
+
     // Qualified name
     result.push_str(&format!(
         "\n**Qualified Name:** `{}`\n",
