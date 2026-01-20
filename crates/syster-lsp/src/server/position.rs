@@ -20,14 +20,23 @@ impl LspServer {
         let pos = syster::core::Position::new(position.line as usize, position.character as usize);
 
         // 1. Check if cursor is on a reference (e.g., type annotation, specialization target)
-        if let Some(target_name) = self
+        // Use get_full_reference_at_position to access scope_id for proper resolution
+        if let Some((target_name, ref_info)) = self
             .workspace
             .reference_index()
-            .get_reference_at_position(&file_path_str, pos)
+            .get_full_reference_at_position(&file_path_str, pos)
         {
             // Resolve the target to get full symbol info
             let resolver = self.resolver();
-            if let Some(symbol) = resolver.resolve(target_name) {
+            
+            // Try scope-aware resolution if we have a scope_id
+            let symbol = if let Some(scope_id) = ref_info.scope_id {
+                resolver.resolve_in_scope(target_name, scope_id)
+            } else {
+                resolver.resolve(target_name)
+            };
+            
+            if let Some(symbol) = symbol {
                 let range = symbol
                     .span()
                     .map(|s| span_to_lsp_range(&s))

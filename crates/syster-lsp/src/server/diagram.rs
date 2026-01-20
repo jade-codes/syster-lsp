@@ -216,8 +216,8 @@ fn convert_symbol_to_diagram(symbol: &Symbol) -> Option<DiagramSymbol> {
             typed_by: None,
             direction: None,
         }),
-        // Skip Alias and Import - not useful for diagrams
-        Symbol::Alias { .. } | Symbol::Import { .. } => None,
+        // Skip Alias, Import, and Comment - not useful for diagrams
+        Symbol::Alias { .. } | Symbol::Import { .. } | Symbol::Comment { .. } => None,
     }
 }
 
@@ -354,6 +354,7 @@ mod tests {
             source_file: Some("test.sysml".to_string()),
             span: Some(Span::from_coords(0, 0, 0, 10)),
             documentation: None,
+            specializes: Vec::new(),
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -380,6 +381,8 @@ mod tests {
             source_file: Some("test.sysml".to_string()),
             span: Some(Span::from_coords(0, 0, 0, 10)),
             documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();

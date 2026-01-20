@@ -118,6 +118,7 @@ fn test_format_classifier_basic() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -140,6 +141,7 @@ fn test_format_classifier_abstract() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -164,6 +166,7 @@ fn test_format_definition_part() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -186,6 +189,7 @@ fn test_format_definition_attribute() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -208,6 +212,7 @@ fn test_format_definition_requirement() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -230,6 +235,7 @@ fn test_format_definition_action() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -252,6 +258,7 @@ fn test_format_definition_port() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -276,6 +283,8 @@ fn test_format_usage_part() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -299,6 +308,8 @@ fn test_format_usage_attribute() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -322,6 +333,8 @@ fn test_format_usage_action() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -345,6 +358,8 @@ fn test_format_usage_port() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -368,6 +383,8 @@ fn test_format_usage_requirement() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -390,6 +407,8 @@ fn test_format_feature_without_type() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -416,6 +435,8 @@ fn test_format_feature_with_type() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -437,6 +458,8 @@ fn test_format_feature_with_qualified_type() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -481,6 +504,7 @@ fn test_format_with_special_characters() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -505,6 +529,8 @@ fn test_format_with_very_long_name() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+        redefines: Vec::new(),
+        subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -546,6 +572,8 @@ fn test_format_feature_type_with_spaces() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -590,6 +618,7 @@ fn test_format_hover_includes_qualified_name() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -663,6 +692,7 @@ fn test_format_hover_markdown_structure() {
         source_file: Some("/test.sysml".to_string()),
         span: Some(test_span()),
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -719,6 +749,7 @@ fn test_format_all_symbol_variants_produce_output() {
             source_file: None,
             span: None,
             documentation: None,
+            specializes: Vec::new(),
         },
         Symbol::Definition {
             name: "D".to_string(),
@@ -729,6 +760,7 @@ fn test_format_all_symbol_variants_produce_output() {
             source_file: None,
             span: None,
             documentation: None,
+            specializes: Vec::new(),
         },
         Symbol::Usage {
             name: "U".to_string(),
@@ -740,6 +772,8 @@ fn test_format_all_symbol_variants_produce_output() {
             source_file: None,
             span: None,
             documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
         },
         Symbol::Feature {
             name: "F".to_string(),
@@ -749,6 +783,8 @@ fn test_format_all_symbol_variants_produce_output() {
             source_file: None,
             span: None,
             documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
         },
     ];
 
@@ -777,6 +813,7 @@ fn test_format_definition_lowercase_kind() {
         source_file: None,
         span: None,
         documentation: None,
+            specializes: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -800,6 +837,8 @@ fn test_format_usage_lowercase_kind() {
         source_file: None,
         span: None,
         documentation: None,
+            redefines: Vec::new(),
+            subsets: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();

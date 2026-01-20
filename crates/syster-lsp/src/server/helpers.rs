@@ -151,6 +151,7 @@ pub fn collect_reference_locations(
     let mut locations = Vec::new();
 
     // Query reference index by qualified name
+    // This includes all references: type annotations, specializations, imports, etc.
     let refs = workspace.reference_index().get_references(qualified_name);
 
     debug!("[COLLECT_REFS] reference_index refs count={}", refs.len());
@@ -164,31 +165,6 @@ pub fn collect_reference_locations(
         }
     }
 
-    // Add import references by iterating all imports (computed on demand)
-    let symbol_table = workspace.symbol_table();
-    let mut import_count = 0;
-    for scope_id in 0..symbol_table.scope_count() {
-        for import in symbol_table.get_scope_imports(scope_id) {
-            // Skip wildcard imports - they don't reference a specific symbol
-            if import.path.ends_with("::*") || import.path.ends_with("::**") {
-                continue;
-            }
-
-            // Check if this import references our target
-            if import.path == qualified_name
-                && let (Some(span), Some(file)) = (import.span, &import.file)
-                && let Ok(uri) = Url::from_file_path(file)
-            {
-                locations.push(Location {
-                    uri,
-                    range: span_to_lsp_range(&span),
-                });
-                import_count += 1;
-            }
-        }
-    }
-
-    debug!("[COLLECT_REFS] import refs count={}", import_count);
     debug!("[COLLECT_REFS] total locations={}", locations.len());
     locations
 }
@@ -342,6 +318,7 @@ fn format_symbol_declaration(symbol: &Symbol) -> String {
             format!("feature {name}{type_str}")
         }
         Symbol::Import { path, .. } => format!("import {path}"),
+        Symbol::Comment { name, .. } => format!("comment {name}"),
     }
 }
 

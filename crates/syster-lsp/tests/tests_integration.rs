@@ -2276,3 +2276,1249 @@ fn test_hover_on_type_from_wildcard_import() {
         );
     }
 }
+
+/// Test that feature chain resolution works for `perform takePicture.focus`
+/// The hover on `focus` should resolve to `PictureTaking::TakePicture::focus`,
+/// NOT show "Symbol not resolved".
+#[test]
+fn test_feature_chain_hover_resolves_focus() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_chain.sysml").unwrap();
+
+    let source = r#"package PictureTaking {
+    action def TakePicture {
+        action focus;
+        action shoot;
+    }
+    action takePicture : TakePicture;
+}
+
+part def Camera {
+    private import PictureTaking::*;
+    
+    perform action takePicture[*] :> PictureTaking::takePicture;
+    
+    part focusingSubsystem {
+        perform takePicture.focus;
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+        println!("      specializes: {:?}", sym.specializes());
+        println!("      subsets: {:?}", sym.subsets());
+        println!("      redefines: {:?}", sym.redefines());
+        if let syster::semantic::symbol_table::Symbol::Usage { usage_type, .. } = sym {
+            println!("      usage_type: {:?}", usage_type);
+        }
+    }
+
+    // Debug: Print all reference index targets
+    println!("\n=== All Reference Targets ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> source: {}, chain_ctx: {:?}, scope_id: {:?}", 
+                     ref_info.source_qname, ref_info.chain_context, ref_info.scope_id);
+        }
+    }
+
+    // Line 14 (0-indexed) has: `        perform takePicture.focus;`
+    // 'focus' starts at column 28
+    let focus_position = Position {
+        line: 14,
+        character: 28,
+    };
+
+    println!("\n=== Testing hover at ({}, {}) ===", focus_position.line, focus_position.character);
+
+    let hover_focus = server.get_hover(&uri, focus_position);
+    println!("Hover result: {:?}", hover_focus);
+
+    // The hover MUST return something
+    assert!(
+        hover_focus.is_some(),
+        "Hover on 'focus' should return a result"
+    );
+
+    let hover = hover_focus.unwrap();
+    let content = match &hover.contents {
+        async_lsp::lsp_types::HoverContents::Scalar(
+            async_lsp::lsp_types::MarkedString::String(s),
+        ) => s.clone(),
+        async_lsp::lsp_types::HoverContents::Markup(markup) => markup.value.clone(),
+        _ => String::new(),
+    };
+
+    // The hover MUST NOT say "Symbol not resolved"
+    assert!(
+        !content.contains("Symbol not resolved"),
+        "Hover on 'focus' should resolve the symbol, not show 'Symbol not resolved'.\n\
+         Got: {}\n\
+         This indicates feature chain resolution is broken.\n\
+         The chain 'takePicture.focus' should resolve 'focus' to PictureTaking::TakePicture::focus",
+        content
+    );
+
+    // The hover SHOULD contain the qualified name
+    assert!(
+        content.contains("TakePicture::focus") || content.contains("PictureTaking::TakePicture::focus"),
+        "Hover should show the resolved qualified name for 'focus'.\n\
+         Expected to contain 'TakePicture::focus' or 'PictureTaking::TakePicture::focus'.\n\
+         Got: {}",
+        content
+    );
+}
+
+/// Test that hover works on flow statement feature chains.
+/// Given: `flow of Exposure from focus.xrsl to shoot.xsf;`
+/// Hovering on `xrsl` should resolve to `Focus::xrsl`
+/// Hovering on `focus` should resolve to the action `focus: Focus`
+#[test]
+fn test_flow_statement_hover_resolves_feature_chains() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_flow.sysml").unwrap();
+
+    let source = r#"package PictureTaking {
+    part def Exposure;
+    
+    action def Focus { out xrsl: Exposure; }
+    action def Shoot { in xsf: Exposure; }	
+        
+    action takePicture {		
+        action focus: Focus[1];
+        flow of Exposure from focus.xrsl to shoot.xsf;
+        action shoot: Shoot[1];
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all reference index targets
+    println!("\n=== All Reference Targets ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> span: {:?}, chain_ctx: {:?}", ref_info.span, ref_info.chain_context);
+        }
+    }
+
+    // Line 8 (0-indexed) has: `        flow of Exposure from focus.xrsl to shoot.xsf;`
+    // Let's hover on 'Exposure' first (should resolve to the part def)
+    let exposure_position = Position {
+        line: 8,
+        character: 16, // 'Exposure' starts around column 16
+    };
+
+    println!("\n=== Testing hover on 'Exposure' at ({}, {}) ===", exposure_position.line, exposure_position.character);
+
+    let hover_exposure = server.get_hover(&uri, exposure_position);
+    println!("Hover result: {:?}", hover_exposure);
+
+    assert!(
+        hover_exposure.is_some(),
+        "Hover on 'Exposure' in flow statement should return a result"
+    );
+
+    // Now test 'focus' in the flow (the action usage, not the type)
+    let focus_position = Position {
+        line: 8,
+        character: 30, // 'focus' starts at column 30
+    };
+
+    println!("\n=== Testing hover on 'focus' at ({}, {}) ===", focus_position.line, focus_position.character);
+
+    let hover_focus = server.get_hover(&uri, focus_position);
+    println!("Hover result: {:?}", hover_focus);
+
+    assert!(
+        hover_focus.is_some(),
+        "Hover on 'focus' in flow statement should return a result"
+    );
+
+    // Now test 'xrsl' - the output port on focus
+    let xrsl_position = Position {
+        line: 8,
+        character: 36, // 'xrsl' starts at column 36
+    };
+
+    println!("\n=== Testing hover on 'xrsl' at ({}, {}) ===", xrsl_position.line, xrsl_position.character);
+
+    let hover_xrsl = server.get_hover(&uri, xrsl_position);
+    println!("Hover result: {:?}", hover_xrsl);
+
+    assert!(
+        hover_xrsl.is_some(),
+        "Hover on 'xrsl' in flow statement should return a result"
+    );
+
+    let hover = hover_xrsl.unwrap();
+    let content = match &hover.contents {
+        async_lsp::lsp_types::HoverContents::Scalar(
+            async_lsp::lsp_types::MarkedString::String(s),
+        ) => s.clone(),
+        async_lsp::lsp_types::HoverContents::Markup(markup) => markup.value.clone(),
+        _ => String::new(),
+    };
+
+    // The hover MUST NOT say "Symbol not resolved"
+    assert!(
+        !content.contains("Symbol not resolved"),
+        "Hover on 'xrsl' should resolve the symbol, not show 'Symbol not resolved'.\n\
+         Got: {}\n\
+         The chain 'focus.xrsl' should resolve 'xrsl' to Focus::xrsl",
+        content
+    );
+
+    // The hover SHOULD contain the qualified name
+    assert!(
+        content.contains("xrsl") && (content.contains("Focus") || content.contains("out")),
+        "Hover should show information about the 'xrsl' output port.\n\
+         Expected to contain 'xrsl' and 'Focus' or 'out'.\n\
+         Got: {}",
+        content
+    );
+}
+
+/// Test that hover works on connection usage endpoints with references (::>).
+/// Given: `connection : MultiCauseEffect connect (cause1 ::> causer1, ...)`
+/// Hovering on `causer1` should resolve to the part definition.
+#[test]
+fn test_connection_usage_endpoint_hover() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_connection.sysml").unwrap();
+
+    let source = r#"package TestConnections {
+    part def Causer1;
+    part def Causer2;
+    part def Effected1;
+    part def Effected2;
+    
+    connection def MultiCauseEffect {
+        end cause1: Causer1;
+        end cause2: Causer2;
+        end effect1: Effected1;
+        end effect2: Effected2;
+    }
+    
+    part testPart {
+        part causer1: Causer1;
+        part causer2: Causer2;
+        part effected1: Effected1;
+        part effected2: Effected2;
+        
+        connection multicausation : MultiCauseEffect connect
+            ( cause1 ::> causer1, cause2 ::> causer2,
+              effect1 ::> effected1, effect2 ::> effected2 );
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all reference index targets
+    println!("\n=== All Reference Targets ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> span: {:?}, chain_ctx: {:?}", ref_info.span, ref_info.chain_context);
+        }
+    }
+
+    // Line 20 (0-indexed) has: `            ( cause1 ::> causer1, cause2 ::> causer2,`
+    // 'causer1' starts around column 27
+    let causer1_position = Position {
+        line: 20,
+        character: 27,
+    };
+
+    println!("\n=== Testing hover on 'causer1' at ({}, {}) ===", causer1_position.line, causer1_position.character);
+
+    let hover_causer1 = server.get_hover(&uri, causer1_position);
+    println!("Hover result: {:?}", hover_causer1);
+
+    assert!(
+        hover_causer1.is_some(),
+        "Hover on 'causer1' in connection endpoint should return a result"
+    );
+
+    let hover = hover_causer1.unwrap();
+    let content = match &hover.contents {
+        async_lsp::lsp_types::HoverContents::Scalar(
+            async_lsp::lsp_types::MarkedString::String(s),
+        ) => s.clone(),
+        async_lsp::lsp_types::HoverContents::Markup(markup) => markup.value.clone(),
+        _ => String::new(),
+    };
+
+    // The hover MUST NOT say "Symbol not resolved"
+    assert!(
+        !content.contains("Symbol not resolved"),
+        "Hover on 'causer1' should resolve the symbol, not show 'Symbol not resolved'.\n\
+         Got: {}\n\
+         The reference '::> causer1' should resolve to testPart::causer1",
+        content
+    );
+
+    // The hover SHOULD contain information about causer1
+    assert!(
+        content.contains("causer1"),
+        "Hover should show information about 'causer1'.\n\
+         Got: {}",
+        content
+    );
+}
+
+/// Test comprehensive connection patterns:
+/// - connection with inline end definitions: `connection { end cause ::> a; }`
+/// - standalone usage with ::> reference: `cause causeA ::> a;`
+/// - connect with simple identifiers: `connect ( causeA, causeB )`
+/// - binary connect with `to`: `connect a to c;`
+#[test]
+fn test_connection_patterns_comprehensive_hover() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_connection_patterns.sysml").unwrap();
+
+    let source = r#"package TestConnectionPatterns {
+    part def A;
+    part def B;
+    part def C;
+    part def D;
+    
+    part testPart {
+        part a: A;
+        part b: B;
+        part c: C;
+        part d: D;
+        
+        // Pattern 1: connection with inline end definitions
+        connection multicausation1 {
+            end cause ::> a;
+            end cause ::> b;
+            end effect ::> c;
+            end effect ::> d;
+        }
+        
+        // Pattern 2: standalone usage with ::> reference
+        part causeA ::> a;
+        part causeB ::> b;
+        part effectC ::> c;
+        part effectD ::> d;
+        
+        // Pattern 3: connect with simple identifiers (nary)
+        connection multicausation2 connect ( causeA, causeB, effectC, effectD );
+        
+        // Pattern 4: binary connect with to
+        connection causation1 connect a to c;
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all reference index targets
+    println!("\n=== All Reference Targets ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> span: {:?}", ref_info.span);
+        }
+    }
+
+    // Test Pattern 1: `end cause ::> a;` on line 14 (0-indexed)
+    // 'a' spans columns 26-27 based on debug output
+    let pattern1_position = Position {
+        line: 14,
+        character: 26,
+    };
+    println!("\n=== Testing Pattern 1: 'a' in 'end cause ::> a' at ({}, {}) ===", 
+             pattern1_position.line, pattern1_position.character);
+    let hover_pattern1 = server.get_hover(&uri, pattern1_position);
+    println!("Hover result: {:?}", hover_pattern1);
+    assert!(
+        hover_pattern1.is_some(),
+        "Hover on 'a' in 'end cause ::> a' should return a result"
+    );
+
+    // Test Pattern 2: `part causeA ::> a;` on line 21 (0-indexed)  
+    // 'a' spans columns 24-25 based on debug output
+    let pattern2_position = Position {
+        line: 21,
+        character: 24,
+    };
+    println!("\n=== Testing Pattern 2: 'a' in 'part causeA ::> a' at ({}, {}) ===", 
+             pattern2_position.line, pattern2_position.character);
+    let hover_pattern2 = server.get_hover(&uri, pattern2_position);
+    println!("Hover result: {:?}", hover_pattern2);
+    assert!(
+        hover_pattern2.is_some(),
+        "Hover on 'a' in 'part causeA ::> a' should return a result"
+    );
+
+    // Test Pattern 3: `connect ( causeA, causeB, effectC, effectD )` on line 27 (0-indexed)
+    // 'causeA' spans columns 45-51 based on debug output
+    let pattern3_position = Position {
+        line: 27,
+        character: 45,
+    };
+    println!("\n=== Testing Pattern 3: 'causeA' in 'connect ( causeA, ...)' at ({}, {}) ===", 
+             pattern3_position.line, pattern3_position.character);
+    let hover_pattern3 = server.get_hover(&uri, pattern3_position);
+    println!("Hover result: {:?}", hover_pattern3);
+    assert!(
+        hover_pattern3.is_some(),
+        "Hover on 'causeA' in 'connect ( causeA, ...)' should return a result"
+    );
+
+    // Test Pattern 4: `connect a to c` on line 30 (0-indexed)
+    // 'a' spans columns 38-39 based on debug output
+    let pattern4_a_position = Position {
+        line: 30,
+        character: 38,
+    };
+    println!("\n=== Testing Pattern 4a: 'a' in 'connect a to c' at ({}, {}) ===", 
+             pattern4_a_position.line, pattern4_a_position.character);
+    let hover_pattern4_a = server.get_hover(&uri, pattern4_a_position);
+    println!("Hover result: {:?}", hover_pattern4_a);
+    assert!(
+        hover_pattern4_a.is_some(),
+        "Hover on 'a' in 'connect a to c' should return a result"
+    );
+
+    // 'c' spans columns 43-44 based on debug output
+    let pattern4_c_position = Position {
+        line: 30,
+        character: 43,
+    };
+    println!("\n=== Testing Pattern 4b: 'c' in 'connect a to c' at ({}, {}) ===", 
+             pattern4_c_position.line, pattern4_c_position.character);
+    let hover_pattern4_c = server.get_hover(&uri, pattern4_c_position);
+    println!("Hover result: {:?}", hover_pattern4_c);
+    assert!(
+        hover_pattern4_c.is_some(),
+        "Hover on 'c' in 'connect a to c' should return a result"
+    );
+}
+
+/// Test that comment elements and their 'about' references work with hover
+#[test]
+fn test_comment_about_hover() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_comments.sysml").unwrap();
+
+    // SysML comment syntax patterns
+    let source = r#"package Comments {
+    doc /* Documentation Comment */
+
+    doc /* Documentation about Package */
+
+    comment cmt /* Named Comment */
+    comment cmt_cmt about cmt /* Comment about Comment */
+    
+    comment about C /* Documentation Comment on Part Def */
+    part def C {
+        doc /* Documentation in Part Def */
+        comment /* Comment in Part Def */
+        comment about Comments /* Comment about Package */
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all reference index targets
+    println!("\n=== All Reference Targets ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> span: {:?}", ref_info.span);
+        }
+    }
+
+    // Test 1: Hover on 'cmt' in `comment cmt_cmt about cmt`
+    // 'cmt' reference should be around line 6, column 27
+    let cmt_ref_position = Position {
+        line: 6,
+        character: 27,
+    };
+    println!("\n=== Testing: 'cmt' in 'comment cmt_cmt about cmt' at ({}, {}) ===", 
+             cmt_ref_position.line, cmt_ref_position.character);
+    let hover_cmt_ref = server.get_hover(&uri, cmt_ref_position);
+    println!("Hover result: {:?}", hover_cmt_ref);
+    assert!(
+        hover_cmt_ref.is_some(),
+        "Hover on 'cmt' in 'about cmt' should return a result"
+    );
+
+    // Test 2: Hover on 'C' in `comment about C`
+    // 'C' reference should be around line 8, column 18
+    let c_ref_position = Position {
+        line: 8,
+        character: 18,
+    };
+    println!("\n=== Testing: 'C' in 'comment about C' at ({}, {}) ===", 
+             c_ref_position.line, c_ref_position.character);
+    let hover_c_ref = server.get_hover(&uri, c_ref_position);
+    println!("Hover result: {:?}", hover_c_ref);
+    assert!(
+        hover_c_ref.is_some(),
+        "Hover on 'C' in 'comment about C' should return a result"
+    );
+
+    // Test 3: Hover on 'Comments' in `comment about Comments`
+    // 'Comments' reference should be around line 12, column 22
+    let comments_ref_position = Position {
+        line: 12,
+        character: 22,
+    };
+    println!("\n=== Testing: 'Comments' in 'comment about Comments' at ({}, {}) ===", 
+             comments_ref_position.line, comments_ref_position.character);
+    let hover_comments_ref = server.get_hover(&uri, comments_ref_position);
+    println!("Hover result: {:?}", hover_comments_ref);
+    assert!(
+        hover_comments_ref.is_some(),
+        "Hover on 'Comments' in 'comment about Comments' should return a result"
+    );
+}
+
+/// Test that imported types can be hovered after import resolution
+/// Issue: `private import ShapeItems::Box;` followed by `item boundingBox : Box`
+/// The `Box` in the type annotation should resolve to `ShapeItems::Box`
+#[test]
+fn test_hover_imported_type() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib (we define everything ourselves)
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_import.sysml").unwrap();
+
+    let source = r#"package ShapeItems {
+    item def Box {
+        attribute length;
+        attribute width;
+        attribute height;
+    }
+}
+
+package CarWithEnvelopingShape {
+    private import ShapeItems::Box;
+
+    part def Car {
+        item boundingBox : Box [1] {
+            :>> length = 4800;
+            :>> width  = 1840;
+            :>> height = 1350;
+        }
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all reference targets
+    println!("\n=== All Reference Targets ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> span: {:?}, scope_id: {:?}", ref_info.span, ref_info.scope_id);
+        }
+    }
+
+    // Test: Hover on 'Box' in `item boundingBox : Box [1]`
+    // Line 12 (0-indexed): `        item boundingBox : Box [1] {`
+    // 'Box' should be around column 27
+    let box_position = Position {
+        line: 12,
+        character: 27,
+    };
+    println!("\n=== Testing: 'Box' in 'item boundingBox : Box' at ({}, {}) ===", 
+             box_position.line, box_position.character);
+    let hover_box = server.get_hover(&uri, box_position);
+    println!("Hover result: {:?}", hover_box);
+    assert!(
+        hover_box.is_some(),
+        "Hover on 'Box' type annotation should return a result"
+    );
+
+    // Verify the hover resolves to ShapeItems::Box, not just "Box"
+    if let Some(hover) = hover_box {
+        let content = format!("{:?}", hover.contents);
+        assert!(
+            content.contains("ShapeItems::Box"),
+            "Hover should show fully qualified name ShapeItems::Box, got: {}", content
+        );
+    }
+}
+
+#[test]
+fn test_hover_imported_type_cross_file() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib (we define everything ourselves)
+    let mut server = LspServer::with_config(false, None);
+
+    // File 1: Define ShapeItems::Box
+    let uri1 = Url::parse("file:///shapes.sysml").unwrap();
+    let source1 = r#"package ShapeItems {
+    item def Box {
+        attribute length;
+        attribute width;
+        attribute height;
+    }
+}"#;
+
+    // File 2: Import and use Box
+    let uri2 = Url::parse("file:///car.sysml").unwrap();
+    let source2 = r#"package CarWithEnvelopingShape {
+    private import ShapeItems::Box;
+
+    part def Car {
+        item boundingBox : Box [1] {
+            :>> length = 4800;
+            :>> width  = 1840;
+            :>> height = 1350;
+        }
+    }
+}"#;
+
+    // Open both files
+    server
+        .open_document(&uri1, source1)
+        .expect("Should parse shapes.sysml");
+    server
+        .open_document(&uri2, source2)
+        .expect("Should parse car.sysml");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols (cross-file) ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all reference targets
+    println!("\n=== All Reference Targets (cross-file) ===");
+    for target in server.workspace().reference_index().targets() {
+        println!("  target: {}", target);
+        for ref_info in server.workspace().reference_index().get_references(target) {
+            println!("    -> span: {:?}, scope_id: {:?}", ref_info.span, ref_info.scope_id);
+        }
+    }
+
+    // Test: Hover on 'Box' in `item boundingBox : Box [1]` in the second file
+    // Line 4 (0-indexed): `        item boundingBox : Box [1] {`
+    // 'Box' should be around column 27
+    let box_position = Position {
+        line: 4,
+        character: 27,
+    };
+    println!("\n=== Testing: 'Box' in 'item boundingBox : Box' at ({}, {}) (cross-file) ===", 
+             box_position.line, box_position.character);
+    let hover_box = server.get_hover(&uri2, box_position);
+    println!("Hover result: {:?}", hover_box);
+    assert!(
+        hover_box.is_some(),
+        "Hover on 'Box' type annotation should return a result (cross-file import)"
+    );
+
+    // Verify the hover resolves to ShapeItems::Box, not just "Box"
+    if let Some(hover) = hover_box {
+        let content = format!("{:?}", hover.contents);
+        assert!(
+            content.contains("ShapeItems::Box"),
+            "Hover should show fully qualified name ShapeItems::Box, got: {}", content
+        );
+    }
+}
+
+
+#[test]
+fn test_hover_message_usage() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server WITHOUT stdlib (we define everything ourselves)
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_message.sysml").unwrap();
+
+    // SysML with message usages inside a part definition
+    // Note: messages inside interface port bodies (`in port { message ... }`) 
+    // are not currently parsed due to grammar limitations
+    let source = r#"package Signals {
+    item def SensedSpeed;
+    item def FuelCmd;
+}
+
+package VehicleInterface {
+    import Signals::*;
+    
+    part def EngineControlUnit {
+        message sendSensedSpeed of SensedSpeed;
+        message sendFuelCmd of FuelCmd;
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols (message test) ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Test: Hover on 'sendSensedSpeed' message name
+    // Line 9 (0-indexed): `        message sendSensedSpeed of SensedSpeed;`
+    // 'sendSensedSpeed' starts around column 16
+    let msg_name_position = Position {
+        line: 9,
+        character: 18,
+    };
+    println!("\n=== Testing: 'sendSensedSpeed' message name at ({}, {}) ===", 
+             msg_name_position.line, msg_name_position.character);
+    let hover_msg_name = server.get_hover(&uri, msg_name_position);
+    println!("Hover result on message name: {:?}", hover_msg_name);
+    assert!(
+        hover_msg_name.is_some(),
+        "Hover on message name 'sendSensedSpeed' should return a result"
+    );
+
+    // Verify hover shows it's a Message
+    if let Some(hover) = hover_msg_name {
+        let content = format!("{:?}", hover.contents);
+        assert!(
+            content.contains("Message") || content.contains("sendSensedSpeed"),
+            "Hover should show message info, got: {}", content
+        );
+    }
+
+    // Test: Hover on 'SensedSpeed' type reference in message
+    // Line 9: `        message sendSensedSpeed of SensedSpeed;`
+    // 'SensedSpeed' starts around column 37
+    let msg_type_position = Position {
+        line: 9,
+        character: 40,
+    };
+    println!("\n=== Testing: 'SensedSpeed' type in message at ({}, {}) ===", 
+             msg_type_position.line, msg_type_position.character);
+    let hover_msg_type = server.get_hover(&uri, msg_type_position);
+    println!("Hover result on message type: {:?}", hover_msg_type);
+    assert!(
+        hover_msg_type.is_some(),
+        "Hover on message type 'SensedSpeed' should return a result"
+    );
+
+    // Verify the hover resolves to Signals::SensedSpeed
+    if let Some(hover) = hover_msg_type {
+        let content = format!("{:?}", hover.contents);
+        assert!(
+            content.contains("SensedSpeed"),
+            "Hover should show SensedSpeed, got: {}", content
+        );
+    }
+}
+
+
+#[test]
+fn test_hover_event_occurrence_usage() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_event.sysml").unwrap();
+
+    let source = r#"package VehicleControl {
+    part def SpeedController {
+        port redefines setSpeedPort {
+            event occurrence setSpeedReceived;
+        }
+        part redefines speedSensor {
+            port redefines speedSensorPort {
+                event occurrence sensedSpeedSent;
+            }
+        }
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols (event test) ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Test: Hover on 'setSpeedReceived' event name
+    // Line 3 (0-indexed): `            event occurrence setSpeedReceived;`
+    let event_position = Position {
+        line: 3,
+        character: 32,
+    };
+    println!("\n=== Testing: 'setSpeedReceived' event at ({}, {}) ===", 
+             event_position.line, event_position.character);
+    let hover_event = server.get_hover(&uri, event_position);
+    println!("Hover result on event: {:?}", hover_event);
+    assert!(
+        hover_event.is_some(),
+        "Hover on event 'setSpeedReceived' should return a result"
+    );
+
+    // Verify hover shows it's an Event
+    if let Some(hover) = hover_event {
+        let content = format!("{:?}", hover.contents);
+        assert!(
+            content.contains("Event") || content.contains("setSpeedReceived"),
+            "Hover should show event info, got: {}", content
+        );
+    }
+}
+
+#[test]
+fn test_hover_imported_type_in_message() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    let mut server = LspServer::with_config(false, None);
+
+    // File 1: Define the signal types
+    let types_uri = Url::parse("file:///types.sysml").unwrap();
+    let types_source = r#"package SignalTypes {
+    item def IgnitionCmd;
+    item def EngineStatus;
+}"#;
+
+    server
+        .open_document(&types_uri, types_source)
+        .expect("Should parse types document");
+
+    // File 2: Use the imported types in messages
+    let main_uri = Url::parse("file:///main.sysml").unwrap();
+    let main_source = r#"package VehicleInteraction {
+    import SignalTypes::*;
+    
+    action def DriveSequence {
+        in driver : ~Driver;
+        in vehicle : ~Vehicle;
+        
+        message of ignitionCmd:IgnitionCmd from driver.turnOn to vehicle.trigger;
+    }
+}"#;
+
+    server
+        .open_document(&main_uri, main_source)
+        .expect("Should parse main document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols (import in message test) ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Test: Hover on 'IgnitionCmd' type reference in message
+    // Line 7 (0-indexed): `        message of ignitionCmd:IgnitionCmd from driver.turnOn to vehicle.trigger;`
+    let type_position = Position {
+        line: 7,
+        character: 34,  // Position on 'IgnitionCmd' after the colon
+    };
+    println!("\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===", 
+             type_position.line, type_position.character);
+    let hover_type = server.get_hover(&main_uri, type_position);
+    println!("Hover result on IgnitionCmd: {:?}", hover_type);
+    assert!(
+        hover_type.is_some(),
+        "Hover on imported type 'IgnitionCmd' in message should return a result"
+    );
+
+    // Verify hover shows it's an Item definition
+    if let Some(hover) = hover_type {
+        let content = format!("{:?}", hover.contents);
+        assert!(
+            content.contains("Item") || content.contains("IgnitionCmd"),
+            "Hover should show item definition info, got: {}", content
+        );
+    }
+}
+
+#[test]
+fn test_hover_type_in_action_body_with_send_accept() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test_action.sysml").unwrap();
+    let source = r#"package VehicleControl {
+    item def IgnitionCmd;
+    item def EngineStatus;
+    
+    part def Driver {
+        port p1;
+        port p2;
+    }
+    
+    part def Vehicle {
+        port trigger1;
+        port statusPort;
+    }
+    
+    action def DriveSequence {
+        in driver : Driver;
+        in vehicle : Vehicle;
+        
+        action sendStatus send es via vehicle.statusPort {
+            in es : EngineStatus;
+        }
+        action trigger2 accept es : EngineStatus via driver.p2;
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols (send/accept test) ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Test: Hover on 'EngineStatus' in the send action body
+    // Line 19 (0-indexed): `            in es : EngineStatus;`
+    let type_position = Position {
+        line: 19,
+        character: 22,  // Position on 'EngineStatus'
+    };
+    println!("\n=== Testing: 'EngineStatus' type at ({}, {}) ===", 
+             type_position.line, type_position.character);
+    let hover_type = server.get_hover(&uri, type_position);
+    println!("Hover result on EngineStatus: {:?}", hover_type);
+    assert!(
+        hover_type.is_some(),
+        "Hover on type 'EngineStatus' in send action should return a result"
+    );
+
+    // Test: Hover on 'EngineStatus' in the accept action
+    // Line 21 (0-indexed): `        action trigger2 accept es : EngineStatus via driver.p2;`
+    let accept_position = Position {
+        line: 21,
+        character: 39,  // Position on 'EngineStatus'
+    };
+    println!("\n=== Testing: 'EngineStatus' in accept at ({}, {}) ===", 
+             accept_position.line, accept_position.character);
+    let hover_accept = server.get_hover(&uri, accept_position);
+    println!("Hover result on EngineStatus in accept: {:?}", hover_accept);
+    assert!(
+        hover_accept.is_some(),
+        "Hover on type 'EngineStatus' in accept action should return a result"
+    );
+}
+
+#[test]
+fn test_hover_type_in_cross_file_action_sequence() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    let mut server = LspServer::with_config(false, None);
+
+    // File 1: Define the signal types in a separate file
+    let types_uri = Url::parse("file:///SignalTypes.sysml").unwrap();
+    let types_source = r#"package SignalTypes {
+    item def IgnitionCmd;
+    item def EngineStatus;
+}"#;
+
+    server
+        .open_document(&types_uri, types_source)
+        .expect("Should parse types document");
+
+    // File 2: Use the imported types
+    let main_uri = Url::parse("file:///VehicleInteraction.sysml").unwrap();
+    let main_source = r#"package VehicleInteraction {
+    import SignalTypes::*;
+    
+    part def Driver {
+        port turnVehicleOn;
+        port trigger2;
+    }
+    
+    part def Vehicle {
+        port trigger1;
+        port statusPort;
+        action sendStatus send es via statusPort {
+            in es:EngineStatus;
+        }
+    }
+    
+    action def StartVehicle {
+        in driver : Driver;
+        in vehicle : Vehicle;
+        
+        first vehicle.trigger1 then driver.trigger2;
+        message of ignitionCmd:IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;
+        message of es:EngineStatus from vehicle.sendStatus to driver.trigger2;
+    }
+}"#;
+
+    server
+        .open_document(&main_uri, main_source)
+        .expect("Should parse main document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols (cross-file action sequence test) ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Test: Hover on 'IgnitionCmd' type in message declaration
+    // Line 21 (0-indexed): `        message of ignitionCmd:IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;`
+    let ignition_position = Position {
+        line: 21,
+        character: 35,  // Position on 'IgnitionCmd' after colon
+    };
+    println!("\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===", 
+             ignition_position.line, ignition_position.character);
+    let hover_ignition = server.get_hover(&main_uri, ignition_position);
+    println!("Hover result on IgnitionCmd: {:?}", hover_ignition);
+    assert!(
+        hover_ignition.is_some(),
+        "Hover on imported type 'IgnitionCmd' in message should return a result"
+    );
+
+    // Test: Hover on 'EngineStatus' type in second message
+    // Line 22 (0-indexed): `        message of es:EngineStatus from vehicle.sendStatus to driver.trigger2;`
+    let engine_position = Position {
+        line: 22,
+        character: 25,  // Position on 'EngineStatus'
+    };
+    println!("\n=== Testing: 'EngineStatus' type at ({}, {}) ===", 
+             engine_position.line, engine_position.character);
+    let hover_engine = server.get_hover(&main_uri, engine_position);
+    println!("Hover result on EngineStatus: {:?}", hover_engine);
+    assert!(
+        hover_engine.is_some(),
+        "Hover on imported type 'EngineStatus' in message should return a result"
+    );
+
+    // Test: Hover on 'EngineStatus' inside the Vehicle part definition
+    // Line 12 (0-indexed): `            in es:EngineStatus;`
+    let inner_position = Position {
+        line: 12,
+        character: 21,  // Position on 'EngineStatus'
+    };
+    println!("\n=== Testing: 'EngineStatus' inside Vehicle at ({}, {}) ===", 
+             inner_position.line, inner_position.character);
+    let hover_inner = server.get_hover(&main_uri, inner_position);
+    println!("Hover result on EngineStatus inside Vehicle: {:?}", hover_inner);
+    assert!(
+        hover_inner.is_some(),
+        "Hover on imported type 'EngineStatus' inside nested action should return a result"
+    );
+}
+#[test]
+fn test_hover_vehicle_example() {
+    use async_lsp::lsp_types::{Position, Url};
+    use syster_lsp::server::LspServer;
+
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let source = r#"package SimpleVehicleModel {
+    package SignalDefinitions {
+        item def IgnitionCmd;
+        item def EngineStatus;
+    }
+    
+    package DiscreteInteractions {
+        import SignalDefinitions::*;
+        
+        package Sequence {
+            part def Driver {
+                port p1;
+                port p2;
+            }
+
+            part part0 {
+                perform action startVehicle {
+                    action turnVehicleOn send ignitionCmd via driver.p1 {
+                        in ignitionCmd : IgnitionCmd;
+                    }
+                    action trigger1 accept ignitionCmd : IgnitionCmd via vehicle.ignitionCmdPort;
+                    action startEngine {
+                        in item ignitionCmd : IgnitionCmd; 
+                        out item es : EngineStatus;
+                    }
+                    action sendStatus send es via vehicle.statusPort {
+                        in es : EngineStatus;
+                    }
+                    action trigger2 accept es : EngineStatus via driver.p2;
+                }
+                part driver : Driver;
+                part vehicle : Vehicle;
+                message of ignitionCmd : IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;  
+                message of es : EngineStatus from vehicle.sendStatus to driver.trigger2;
+            }
+        }
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+}
+
+#[test]
+fn test_hover_type_in_vehicle_send_accept() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let source = r#"package SimpleVehicleModel {
+    package SignalDefinitions {
+        item def IgnitionCmd;
+        item def EngineStatus;
+    }
+    
+    package DiscreteInteractions {
+        import SignalDefinitions::*;
+        
+        package Sequence {
+            part def Driver {
+                port p1;
+                port p2;
+            }
+
+            part part0 {
+                perform action startVehicle {
+                    action turnVehicleOn send ignitionCmd via driver.p1 {
+                        in ignitionCmd : IgnitionCmd;
+                    }
+                    action trigger1 accept ignitionCmd : IgnitionCmd via vehicle.ignitionCmdPort;
+                    action startEngine {
+                        in item ignitionCmd : IgnitionCmd; 
+                        out item es : EngineStatus;
+                    }
+                    action sendStatus send es via vehicle.statusPort {
+                        in es : EngineStatus;
+                    }
+                    action trigger2 accept es : EngineStatus via driver.p2;
+                }
+                part driver : Driver;
+                part vehicle : Vehicle;
+                message of ignitionCmd : IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;  
+                message of es : EngineStatus from vehicle.sendStatus to driver.trigger2;
+            }
+        }
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all references
+    println!("\n=== All References ===");
+    for (source_qname, refs) in server.workspace().reference_index().iter_by_source() {
+        for r in refs {
+            println!("  {} -> {} at {:?}", source_qname, r.target_name, r.span);
+        }
+    }
+
+    // Test 1: Hover on IgnitionCmd in send action body (line 18)
+    // `                        in ignitionCmd : IgnitionCmd;`
+    let pos1 = Position { line: 18, character: 42 };
+    println!("\n=== Test 1: IgnitionCmd at line 18 ===");
+    let hover1 = server.get_hover(&uri, pos1);
+    println!("Hover: {:?}", hover1);
+    assert!(hover1.is_some(), "Hover on IgnitionCmd in send action body should work");
+
+    // Test 2: Hover on IgnitionCmd in accept action (line 20)
+    // `                    action trigger1 accept ignitionCmd : IgnitionCmd via vehicle.ignitionCmdPort;`
+    let pos2 = Position { line: 20, character: 62 };
+    println!("\n=== Test 2: IgnitionCmd at line 20 ===");
+    let hover2 = server.get_hover(&uri, pos2);
+    println!("Hover: {:?}", hover2);
+    assert!(hover2.is_some(), "Hover on IgnitionCmd in accept action should work");
+
+    // Test 3: Hover on EngineStatus in message (line 33)
+    // `                message of es : EngineStatus from vehicle.sendStatus to driver.trigger2;`
+    let pos3 = Position { line: 33, character: 35 };
+    println!("\n=== Test 3: EngineStatus at line 33 ===");
+    let hover3 = server.get_hover(&uri, pos3);
+    println!("Hover: {:?}", hover3);
+    assert!(hover3.is_some(), "Hover on EngineStatus in message should work");
+}
