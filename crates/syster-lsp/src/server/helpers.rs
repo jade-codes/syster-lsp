@@ -335,6 +335,9 @@ fn format_symbol_declaration(symbol: &Symbol) -> String {
             format!("feature {name}{type_str}")
         }
         Symbol::Import { path, .. } => format!("import {path}"),
+        Symbol::Comment { documentation, .. } => {
+            documentation.as_ref().map(|d| format!("/* {d} */")).unwrap_or_else(|| "/* comment */".to_string())
+        }
     }
 }
 

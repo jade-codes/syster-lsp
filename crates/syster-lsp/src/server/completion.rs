@@ -146,7 +146,8 @@ impl LspServer {
                 syster::semantic::symbol_table::Symbol::Alias { .. } => {
                     (CompletionItemKind::REFERENCE, "🔗")
                 }
-                syster::semantic::symbol_table::Symbol::Import { .. } => continue, // Skip imports in completions
+                syster::semantic::symbol_table::Symbol::Import { .. }
+                | syster::semantic::symbol_table::Symbol::Comment { .. } => continue, // Skip imports and comments in completions
             };
 
             let qualified_name = symbol.qualified_name();

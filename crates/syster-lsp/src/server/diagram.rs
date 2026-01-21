@@ -188,7 +188,7 @@ fn convert_symbol_to_diagram(symbol: &Symbol) -> Option<DiagramSymbol> {
             typed_by: None,
             direction: None,
         }),
-        // Skip Alias and Import - not useful for diagrams
-        Symbol::Alias { .. } | Symbol::Import { .. } => None,
+        // Skip Alias, Import, and Comment - not useful for diagrams
+        Symbol::Alias { .. } | Symbol::Import { .. } | Symbol::Comment { .. } => None,
     }
 }

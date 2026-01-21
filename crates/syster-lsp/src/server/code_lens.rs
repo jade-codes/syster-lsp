@@ -91,6 +91,7 @@ impl LspServer {
             | Symbol::Usage { .. }
             | Symbol::Alias { .. }
             | Symbol::Import { .. } => true,
+            Symbol::Comment { .. } => false,
         }
     }
 

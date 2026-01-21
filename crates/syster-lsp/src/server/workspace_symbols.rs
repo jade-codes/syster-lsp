@@ -71,7 +71,7 @@ fn symbol_kind(symbol: &Symbol) -> SymbolKind {
         Symbol::Classifier { .. } | Symbol::Definition { .. } => SymbolKind::CLASS,
         Symbol::Feature { .. } | Symbol::Usage { .. } => SymbolKind::PROPERTY,
         Symbol::Alias { .. } => SymbolKind::VARIABLE,
-        Symbol::Import { .. } => SymbolKind::NAMESPACE,
+        Symbol::Import { .. } | Symbol::Comment { .. } => SymbolKind::NAMESPACE,
     }
 }
 
