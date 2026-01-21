@@ -193,7 +193,7 @@ pub fn format_rich_hover(
     if let Some(doc) = symbol.documentation()
         && !doc.is_empty()
     {
-        result.push_str(&format!("\n{}\n", doc));
+        result.push_str(&format!("\n{}\n", doc.trim()));
     }
 
     // Qualified name
