@@ -14,12 +14,7 @@ use syster_lsp::server::LspServer;
 
 /// Get the path to the stdlib directory
 fn get_stdlib_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("../syster-base/sysml.library")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library")
 }
 
 /// Create a server without stdlib (fast tests)
