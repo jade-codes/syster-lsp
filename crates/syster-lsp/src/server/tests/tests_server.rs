@@ -475,6 +475,209 @@ fn test_hover_shows_precise_range() {
 }
 
 #[test]
+fn test_hover_derivation_connection_references() {
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let text = r#"package Requirements {
+    requirement def MassRequirement;
+    
+    requirement vehicleSpecification {
+        requirement vehicleMassRequirement : MassRequirement;
+    }
+    
+    requirement engineSpecification {
+        requirement engineMassRequirement : MassRequirement;
+    }
+    
+    #derivation connection {
+        end #original ::> vehicleSpecification.vehicleMassRequirement;
+        end #derive ::> engineSpecification.engineMassRequirement;
+    }
+}"#;
+
+    server.open_document(&uri, text).unwrap();
+
+    // Hover on "vehicleSpecification" in the ::> reference (line 12, column 26)
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 12,
+            character: 30, // On "vehicleSpecification"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for ::> reference 'vehicleSpecification'"
+    );
+}
+
+#[test]
+fn test_hover_refinement_dependency_to_reference() {
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let text = r#"package VehicleConfiguration_b {
+    package PartsTree {
+        part vehicle_b {
+            part engine;
+        }
+    }
+}
+
+package Test {
+    part def Engine4Cyl;
+    part engine4Cyl : Engine4Cyl;
+    
+    #refinement dependency engine4Cyl to VehicleConfiguration_b::PartsTree::vehicle_b::engine;
+}"#;
+    // Line 12:     #refinement dependency engine4Cyl to VehicleConfiguration_b::PartsTree::vehicle_b::engine;
+    // Columns:     0         1         2         3         4         5         6         7         8         9
+    //              0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123
+    //                                            ^engine4Cyl^       ^VehicleConfiguration_b^::^PartsTree^::^vehicle_b^::^engine^
+
+    server.open_document(&uri, text).unwrap();
+
+    // Hover on "engine4Cyl" (source reference) - columns 27-36
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 12,
+            character: 30, // On "engine4Cyl"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for source reference 'engine4Cyl'"
+    );
+
+    // Hover on "VehicleConfiguration_b" in the `to` reference (line 12)
+    // The qualified path starts at column 41, so we use character 45 to be within it
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 12,
+            character: 45, // On "VehicleConfiguration_b"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for 'to' reference 'VehicleConfiguration_b'"
+    );
+
+    // Hover on "PartsTree" - around column 65
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 12,
+            character: 68, // On "PartsTree"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for 'PartsTree' in qualified path"
+    );
+
+    // Hover on "vehicle_b" - around column 77
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 12,
+            character: 80, // On "vehicle_b"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for 'vehicle_b' in qualified path"
+    );
+
+    // Hover on "engine" - around column 89
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 12,
+            character: 90, // On "engine"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for 'engine' in qualified path"
+    );
+}
+
+#[test]
+fn test_hover_assume_constraint_reference() {
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let text = r#"package Test {
+    attribute def MassValue;
+    attribute assumedCargoMass : MassValue;
+    
+    requirement def FuelEconomyRequirement {
+        attribute requiredFuelEconomy;
+    }
+    
+    requirement highwayFuelEconomyRequirement : FuelEconomyRequirement {
+        assume constraint { assumedCargoMass <= 500 }
+    }
+}"#;
+
+    server.open_document(&uri, text).unwrap();
+
+    // Hover on "assumedCargoMass" inside assume constraint (line 9)
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 9,
+            character: 30, // On "assumedCargoMass"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for reference inside assume constraint"
+    );
+}
+
+#[test]
+fn test_hover_metadata_annotation_reference() {
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let text = r#"package ModelingMetadata {
+    enum def StatusKind {
+        enum open;
+        enum closed;
+    }
+    
+    metadata def StatusInfo {
+        attribute status : StatusKind;
+    }
+}
+
+package Test {
+    import ModelingMetadata::*;
+    
+    part myPart {
+        @StatusInfo {
+            status = StatusKind::closed;
+        }
+    }
+}"#;
+
+    server.open_document(&uri, text).unwrap();
+
+    // Hover on "StatusKind" inside metadata annotation (line 16)
+    let hover = server.get_hover(
+        &uri,
+        Position {
+            line: 16,
+            character: 22, // On "StatusKind"
+        },
+    );
+    assert!(
+        hover.is_some(),
+        "Should get hover info for reference inside metadata annotation"
+    );
+}
+
+#[test]
 fn test_goto_definition_same_file() {
     let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
@@ -2035,6 +2238,7 @@ fn test_cross_file_stdlib_reference_resolution() {
             Symbol::Usage { kind, .. } => kind.as_str(),
             Symbol::Alias { .. } => "Alias",
             Symbol::Import { .. } => "Import",
+            Symbol::Comment { .. } => "Comment",
         };
     }
 
@@ -2174,6 +2378,7 @@ fn test_measurement_references_file_directly() {
             Symbol::Feature { .. } => "Feature",
             Symbol::Alias { .. } => "Alias",
             Symbol::Import { .. } => "Import",
+            Symbol::Comment { .. } => "Comment",
         };
     }
 

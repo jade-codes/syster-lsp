@@ -19,7 +19,6 @@ impl LspServer {
 
         // Find symbol at position - returns qualified name string
         let result = self.find_symbol_at_position(&path, position);
-        debug!("[HOVER] find_symbol_at_position returned: {:?}", result);
         let (qualified_name, hover_range) = result?;
 
         // Look up the symbol using the resolver

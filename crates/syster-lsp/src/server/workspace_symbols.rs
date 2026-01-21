@@ -72,6 +72,7 @@ fn symbol_kind(symbol: &Symbol) -> SymbolKind {
         Symbol::Feature { .. } | Symbol::Usage { .. } => SymbolKind::PROPERTY,
         Symbol::Alias { .. } => SymbolKind::VARIABLE,
         Symbol::Import { .. } => SymbolKind::NAMESPACE,
+        Symbol::Comment { .. } => SymbolKind::STRING,
     }
 }
 
