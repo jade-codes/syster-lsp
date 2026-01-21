@@ -1,6 +1,6 @@
 [package]
 name = "syster-lsp"
-version = "0.1.12-alpha"
+version = "0.1.13-alpha"
 edition = "2024"
 authors = ["jade-codes"]
 license = "MIT"
