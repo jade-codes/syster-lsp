@@ -31,32 +31,33 @@ impl LspServer {
             
             // Handle feature chains (e.g., lugNutCompositePort.lugNutPort1)
             // When chain_index > 0, we need to resolve via the chain context
-            if let Some(ref chain_ctx) = ref_info.chain_context {
-                if chain_ctx.chain_index > 0 && chain_ctx.chain_parts.len() > 1 {
-                    // Resolve the first part of the chain, then resolve members
-                    let first_part = &chain_ctx.chain_parts[0];
-                    let scope_id = ref_info.scope_id.unwrap_or(0);
+            if let Some(ref chain_ctx) = ref_info.chain_context
+                && chain_ctx.chain_index > 0
+                && chain_ctx.chain_parts.len() > 1
+            {
+                // Resolve the first part of the chain, then resolve members
+                let first_part = &chain_ctx.chain_parts[0];
+                let scope_id = ref_info.scope_id.unwrap_or(0);
+                
+                if let Some(base_symbol) = resolver.resolve_in_scope(first_part, scope_id) {
+                    // Walk through intermediate chain parts
+                    let mut current_symbol = base_symbol;
+                    for i in 1..chain_ctx.chain_index {
+                        let part = &chain_ctx.chain_parts[i];
+                        if let Some(next) = resolver.resolve_member(part, current_symbol, current_symbol.scope_id()) {
+                            current_symbol = next;
+                        } else {
+                            break;
+                        }
+                    }
                     
-                    if let Some(base_symbol) = resolver.resolve_in_scope(first_part, scope_id) {
-                        // Walk through intermediate chain parts
-                        let mut current_symbol = base_symbol;
-                        for i in 1..chain_ctx.chain_index {
-                            let part = &chain_ctx.chain_parts[i];
-                            if let Some(next) = resolver.resolve_member(part, current_symbol, current_symbol.scope_id()) {
-                                current_symbol = next;
-                            } else {
-                                break;
-                            }
-                        }
-                        
-                        // Resolve the final part (target_name) as a member
-                        if let Some(symbol) = resolver.resolve_member(target_name, current_symbol, current_symbol.scope_id()) {
-                            let range = symbol
-                                .span()
-                                .map(|s| span_to_lsp_range(&s))
-                                .unwrap_or_else(|| self.make_word_range(position));
-                            return Some((symbol.qualified_name().to_string(), range));
-                        }
+                    // Resolve the final part (target_name) as a member
+                    if let Some(symbol) = resolver.resolve_member(target_name, current_symbol, current_symbol.scope_id()) {
+                        let range = symbol
+                            .span()
+                            .map(|s| span_to_lsp_range(&s))
+                            .unwrap_or_else(|| self.make_word_range(position));
+                        return Some((symbol.qualified_name().to_string(), range));
                     }
                 }
             }
