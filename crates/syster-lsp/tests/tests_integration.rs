@@ -3420,7 +3420,7 @@ fn test_hover_type_in_cross_file_action_sequence() {
 }
 #[test]
 fn test_hover_vehicle_example() {
-    use async_lsp::lsp_types::{Position, Url};
+    use async_lsp::lsp_types::Url;
     use syster_lsp::server::LspServer;
 
     let mut server = LspServer::with_config(false, None);

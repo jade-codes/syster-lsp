@@ -64,7 +64,7 @@ fn print_references_in_test_file(server: &LspServer) {
     for target in ref_index.targets() {
         let refs = ref_index.get_references(target);
         for r in refs {
-            if r.file == PathBuf::from("/test.sysml") {
+            if r.file == std::path::Path::new("/test.sysml") {
                 println!(
                     "  line={} col={}-{} target='{}' source='{}'",
                     r.span.start.line,
@@ -87,8 +87,8 @@ fn test_hover_at_columns(server: &LspServer, uri: &Url, line: u32, col_start: u3
             character: col,
         };
         let hover = server.get_hover(uri, pos);
-        if hover.is_some() {
-            let result = format!("{:?}", hover.unwrap().contents)
+        if let Some(h) = hover {
+            let result = format!("{:?}", h.contents)
                 .chars()
                 .take(80)
                 .collect::<String>();
@@ -138,7 +138,7 @@ package Test {
 }"#;
 
         let uri = open_test_document(&mut server, source);
-        let ref_index = server.workspace().reference_index();
+        let _ref_index = server.workspace().reference_index();
 
         println!("\n=== KEY SYMBOLS ===");
         let st = server.workspace().symbol_table();
@@ -639,12 +639,10 @@ mod debug_with_stdlib {
 
         println!("\n=== CHECKING IMPORTS ===");
         for sym in server.workspace().symbol_table().iter_symbols() {
-            if sym.qualified_name() == "ISQ"
-                || sym.qualified_name().starts_with("ISQ::")
+            if (sym.qualified_name() == "ISQ" || sym.qualified_name().starts_with("ISQ::"))
+                && !sym.qualified_name().contains("::")
             {
-                if !sym.qualified_name().contains("::") {
-                    println!("  {}", sym.qualified_name());
-                }
+                println!("  {}", sym.qualified_name());
             }
         }
 
