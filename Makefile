@@ -69,15 +69,19 @@ ifdef TARGET
 	@echo "Cross-compiling for $(TARGET)..."
 	cargo build --release --target $(TARGET)
 	@mkdir -p dist
-	@# Determine binary name and extension based on target
+	@# Copy binary to dist
 	@if echo "$(TARGET)" | grep -q "windows"; then \
 		cp target/$(TARGET)/release/syster-lsp.exe dist/syster-lsp.exe; \
-		cp -r crates/syster-lsp/sysml.library dist/sysml.library; \
-		cd dist && zip -r ../$(ARTIFACT).zip syster-lsp.exe sysml.library && cd ..; \
 	else \
 		cp target/$(TARGET)/release/syster-lsp dist/syster-lsp; \
 		chmod +x dist/syster-lsp; \
-		cp -r crates/syster-lsp/sysml.library dist/sysml.library; \
+	fi
+	@# Copy sysml.library to dist
+	cp -r crates/syster-lsp/sysml.library dist/sysml.library
+	@# Create archive
+	@if echo "$(TARGET)" | grep -q "windows"; then \
+		cd dist && powershell -command "Compress-Archive -Force -Path syster-lsp.exe,sysml.library -DestinationPath ../$(ARTIFACT).zip" && cd ..; \
+	else \
 		cd dist && tar -czvf ../$(ARTIFACT).tar.gz syster-lsp sysml.library && cd ..; \
 	fi
 	@rm -rf dist
