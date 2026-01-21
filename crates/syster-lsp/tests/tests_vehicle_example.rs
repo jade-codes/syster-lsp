@@ -23,9 +23,7 @@ struct FailingReference {
 fn test_vehicle_example_all_references_have_hover() {
     // Load the vehicle example file
     let file_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()  // crates/
-        .parent().unwrap()  // syster-lsp/
-        .join("../syster-base/tests/sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml");
+        .join("tests/sysml-examples/SimpleVehicleModel.sysml");
     
     let source = fs::read_to_string(&file_path)
         .expect("Should be able to read SimpleVehicleModel.sysml");
@@ -34,9 +32,7 @@ fn test_vehicle_example_all_references_have_hover() {
     
     // Load stdlib for proper resolution
     let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()  // crates/
-        .parent().unwrap()  // syster-lsp/
-        .join("../syster-base/sysml.library");
+        .join("sysml.library");
     
     let mut server = LspServer::with_config(true, Some(stdlib_path));
     let uri = Url::parse("file:///test.sysml").unwrap();
