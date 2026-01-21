@@ -1,5 +1,9 @@
 .PHONY: help build run test clean fmt lint check run-guidelines package
 
+# Default values for cross-platform builds
+TARGET ?= 
+ARTIFACT ?= syster-lsp
+
 help:
 	@echo "Available targets:"
 	@echo "  build          - Build the project"
@@ -10,7 +14,7 @@ help:
 	@echo "  lint           - Run clippy linter"
 	@echo "  check          - Run fmt + lint + test"
 	@echo "  run-guidelines - Run complete validation (fmt + lint + build + test)"
-	@echo "  package        - Build release package"
+	@echo "  package        - Build release package for distribution"
 
 build:
 	cargo build
@@ -57,7 +61,28 @@ run-guidelines:
 	@echo ""
 	@echo "=== ✓ All guidelines passed! ==="
 
+# Build release package with optional cross-compilation target
+# Usage: make package TARGET=x86_64-pc-windows-msvc ARTIFACT=syster-windows-x64
 package:
 	@echo "Building package..."
+ifdef TARGET
+	@echo "Cross-compiling for $(TARGET)..."
+	cargo build --release --target $(TARGET)
+	@mkdir -p dist
+	@# Determine binary name and extension based on target
+	@if echo "$(TARGET)" | grep -q "windows"; then \
+		cp target/$(TARGET)/release/syster-lsp.exe dist/syster-lsp.exe; \
+		cp -r crates/syster-lsp/sysml.library dist/sysml.library; \
+		cd dist && zip -r ../$(ARTIFACT).zip syster-lsp.exe sysml.library && cd ..; \
+	else \
+		cp target/$(TARGET)/release/syster-lsp dist/syster-lsp; \
+		chmod +x dist/syster-lsp; \
+		cp -r crates/syster-lsp/sysml.library dist/sysml.library; \
+		cd dist && tar -czvf ../$(ARTIFACT).tar.gz syster-lsp sysml.library && cd ..; \
+	fi
+	@rm -rf dist
+	@echo "✓ Package created: $(ARTIFACT).tar.gz or $(ARTIFACT).zip"
+else
 	@cargo build --release
-	@echo "✓ Package built"
+	@echo "✓ Package built (use TARGET= and ARTIFACT= for release packaging)"
+endif
