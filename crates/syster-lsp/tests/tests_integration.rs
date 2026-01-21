@@ -3289,53 +3289,93 @@ fn test_hover_type_in_cross_file_action_sequence() {
     item def EngineStatus;
 }"#;
 
-    server
-        .open_document(&types_uri, types_source)
-        .expect("Should parse types document");
+    println!("\n=== OPENING FILE 1: SignalTypes.sysml ===");
+    let result1 = server.open_document(&types_uri, types_source);
+    println!("  open_document result: {:?}", result1);
+    println!("  Files in workspace: {:?}", server.workspace().files().keys().collect::<Vec<_>>());
 
-    // File 2: Use the imported types
+    // File 2: Use the imported types - follows real SysML spec structure
+    // Note: send/accept actions must be inside an action body, not directly in part def
     let main_uri = Url::parse("file:///VehicleInteraction.sysml").unwrap();
     let main_source = r#"package VehicleInteraction {
     import SignalTypes::*;
     
     part def Driver {
-        port turnVehicleOn;
-        port trigger2;
+        port p1;
+        port p2;
     }
     
     part def Vehicle {
-        port trigger1;
+        port ignitionCmdPort;
         port statusPort;
-        action sendStatus send es via statusPort {
-            in es:EngineStatus;
-        }
     }
     
-    action def StartVehicle {
-        in driver : Driver;
-        in vehicle : Vehicle;
-        
-        first vehicle.trigger1 then driver.trigger2;
-        message of ignitionCmd:IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;
-        message of es:EngineStatus from vehicle.sendStatus to driver.trigger2;
+    part part0 {
+        perform action startVehicle {
+            action turnVehicleOn send ignitionCmd via driver.p1 {
+                in ignitionCmd : IgnitionCmd;
+            }
+            action trigger1 accept ignitionCmd : IgnitionCmd via vehicle.ignitionCmdPort;
+            action startEngine {
+                in item ignitionCmd : IgnitionCmd;
+                out item es : EngineStatus;
+            }
+            action sendStatus send es via vehicle.statusPort {
+                in es : EngineStatus;
+            }
+            action trigger2 accept es : EngineStatus via driver.p2;
+        }
+        part driver : Driver;
+        part vehicle : Vehicle;
+        message of ignitionCmd : IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;
+        message of es : EngineStatus from vehicle.sendStatus to driver.trigger2;
     }
 }"#;
 
-    server
-        .open_document(&main_uri, main_source)
-        .expect("Should parse main document");
+    println!("\n=== OPENING FILE 2: VehicleInteraction.sysml ===");
+    let result2 = server.open_document(&main_uri, main_source);
+    println!("  open_document result: {:?}", result2);
+    println!("  Files in workspace: {:?}", server.workspace().files().keys().collect::<Vec<_>>());
+    
+    // Try to manually parse the file to see errors
+    let manual_parse = syster::syntax::sysml::parser::parse_with_result(main_source, &std::path::PathBuf::from("/VehicleInteraction.sysml"));
+    println!("  Manual parse errors: {:?}", manual_parse.errors);
+
+    // Debug: Check what was parsed from file 2
+    println!("\n=== PARSED FILE CONTENTS ===");
+    for (path, file) in server.workspace().files() {
+        println!("  File: {:?}", path);
+        println!("    content: {:?}", file.content());
+    }
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (cross-file action sequence test) ===");
     for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+        println!("  {} (span: {:?}) [scope_id: {:?}]", sym.qualified_name(), sym.span(), sym.scope_id());
     }
 
-    // Test: Hover on 'IgnitionCmd' type in message declaration
-    // Line 21 (0-indexed): `        message of ignitionCmd:IgnitionCmd from driver.turnVehicleOn to vehicle.trigger1;`
+    // Debug: Print all scopes and their imports
+    println!("\n=== Scopes and Imports ===");
+    for scope_id in 0..20 {
+        let imports = server.workspace().symbol_table().get_scope_imports(scope_id);
+        if !imports.is_empty() {
+            println!("  Scope {}: {:?}", scope_id, imports);
+        }
+    }
+
+    // Debug: Check reference index for the file
+    println!("\n=== Reference Index for VehicleInteraction.sysml ===");
+    // Check if IgnitionCmd is indexed as a reference
+    let ignition_refs = server.workspace().reference_index().get_references("IgnitionCmd");
+    println!("  References to 'IgnitionCmd': {:?}", ignition_refs);
+    let qualified_refs = server.workspace().reference_index().get_references("SignalTypes::IgnitionCmd");
+    println!("  References to 'SignalTypes::IgnitionCmd': {:?}", qualified_refs);
+
+    // Test: Hover on 'IgnitionCmd' type in send action body
+    // Line 16 (0-indexed): `                in ignitionCmd : IgnitionCmd;`
     let ignition_position = Position {
-        line: 21,
-        character: 35,  // Position on 'IgnitionCmd' after colon
+        line: 16,
+        character: 33,  // Position on 'IgnitionCmd' 
     };
     println!("\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===", 
              ignition_position.line, ignition_position.character);
@@ -3343,14 +3383,15 @@ fn test_hover_type_in_cross_file_action_sequence() {
     println!("Hover result on IgnitionCmd: {:?}", hover_ignition);
     assert!(
         hover_ignition.is_some(),
-        "Hover on imported type 'IgnitionCmd' in message should return a result"
+        "Hover on imported type 'IgnitionCmd' in send action should return a result"
     );
 
-    // Test: Hover on 'EngineStatus' type in second message
-    // Line 22 (0-indexed): `        message of es:EngineStatus from vehicle.sendStatus to driver.trigger2;`
+    // Test: Hover on 'EngineStatus' type in sendStatus action body  
+    // Line 24 (0-indexed): `                in es : EngineStatus;`
+    // Reference span shows column 24
     let engine_position = Position {
-        line: 22,
-        character: 25,  // Position on 'EngineStatus'
+        line: 24,
+        character: 24,  // Position on 'EngineStatus' (from reference span)
     };
     println!("\n=== Testing: 'EngineStatus' type at ({}, {}) ===", 
              engine_position.line, engine_position.character);
@@ -3358,22 +3399,23 @@ fn test_hover_type_in_cross_file_action_sequence() {
     println!("Hover result on EngineStatus: {:?}", hover_engine);
     assert!(
         hover_engine.is_some(),
-        "Hover on imported type 'EngineStatus' in message should return a result"
+        "Hover on imported type 'EngineStatus' in send action should return a result"
     );
 
-    // Test: Hover on 'EngineStatus' inside the Vehicle part definition
-    // Line 12 (0-indexed): `            in es:EngineStatus;`
-    let inner_position = Position {
-        line: 12,
-        character: 21,  // Position on 'EngineStatus'
+    // Test: Hover on 'EngineStatus' in accept action
+    // Line 26 (0-indexed): `            action trigger2 accept es : EngineStatus via driver.p2;`
+    // Reference span shows column 40
+    let accept_position = Position {
+        line: 26,
+        character: 40,  // Position on 'EngineStatus' (from reference span)
     };
-    println!("\n=== Testing: 'EngineStatus' inside Vehicle at ({}, {}) ===", 
-             inner_position.line, inner_position.character);
-    let hover_inner = server.get_hover(&main_uri, inner_position);
-    println!("Hover result on EngineStatus inside Vehicle: {:?}", hover_inner);
+    println!("\n=== Testing: 'EngineStatus' in accept at ({}, {}) ===", 
+             accept_position.line, accept_position.character);
+    let hover_accept = server.get_hover(&main_uri, accept_position);
+    println!("Hover result on EngineStatus in accept: {:?}", hover_accept);
     assert!(
-        hover_inner.is_some(),
-        "Hover on imported type 'EngineStatus' inside nested action should return a result"
+        hover_accept.is_some(),
+        "Hover on imported type 'EngineStatus' in accept action should return a result"
     );
 }
 #[test]
@@ -3490,18 +3532,80 @@ fn test_hover_type_in_vehicle_send_accept() {
         println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
     }
 
-    // Debug: Print all references
-    println!("\n=== All References ===");
-    for (source_qname, refs) in server.workspace().reference_index().iter_by_source() {
-        for r in refs {
-            println!("  {} -> {} at {:?}", source_qname, r.target_name, r.span);
-        }
+    // Debug: Print all references in file
+    println!("\n=== All References in file /test.sysml ===");
+    let refs_in_file = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    println!("  Count: {}", refs_in_file.len());
+    for r in refs_in_file {
+        println!("  from {} at {:?}", r.source_qname, r.span);
     }
 
     // Test 1: Hover on IgnitionCmd in send action body (line 18)
     // `                        in ignitionCmd : IgnitionCmd;`
     let pos1 = Position { line: 18, character: 42 };
     println!("\n=== Test 1: IgnitionCmd at line 18 ===");
+    
+    // Debug: check what path is being used  
+    let path = uri.to_file_path().unwrap();
+    let path_str = path.to_string_lossy().to_string();
+    println!("  File path from URI: {}", path_str);
+    println!("  Position: line={}, character={}", pos1.line, pos1.character);
+    
+    // Debug: Check if reference exists at position
+    let pos_core = syster::core::Position::new(pos1.line as usize, pos1.character as usize);
+    if let Some((target_name, ref_info)) = server.workspace().reference_index().get_full_reference_at_position(&path_str, pos_core) {
+        println!("  Reference found:");
+        println!("    target_name: {}", target_name);
+        println!("    source_qname: {}", ref_info.source_qname);
+        println!("    scope_id: {:?}", ref_info.scope_id);
+        println!("    span: {:?}", ref_info.span);
+        
+        // Try resolving the target
+        let resolver = server.resolver();
+        if let Some(scope_id) = ref_info.scope_id {
+            println!("  Trying scope-aware resolution in scope {}", scope_id);
+            
+            // Debug: dump scopes chain with imports
+            let mut current_scope = scope_id;
+            println!("  Scope chain:");
+            loop {
+                if let Some(scope) = server.workspace().symbol_table().scopes().get(current_scope) {
+                    println!("    Scope {}: symbols={:?}", current_scope, scope.symbols.keys().collect::<Vec<_>>());
+                }
+                let imports = server.workspace().symbol_table().get_scope_imports(current_scope);
+                if !imports.is_empty() {
+                    println!("      Imports: {:?}", imports);
+                }
+                if let Some(parent) = server.workspace().symbol_table().get_scope_parent(current_scope) {
+                    current_scope = parent;
+                } else {
+                    break;
+                }
+            }
+            
+            if let Some(symbol) = resolver.resolve_in_scope(target_name, scope_id) {
+                println!("    Resolved to: {}", symbol.qualified_name());
+            } else {
+                println!("    Failed to resolve in scope {}", scope_id);
+                // Try global resolution
+                if let Some(symbol) = resolver.resolve(target_name) {
+                    println!("    Global resolution found: {}", symbol.qualified_name());
+                } else {
+                    println!("    Global resolution also failed");
+                }
+            }
+        } else {
+            println!("  No scope_id, trying global resolution");
+            if let Some(symbol) = resolver.resolve(target_name) {
+                println!("    Resolved to: {}", symbol.qualified_name());
+            } else {
+                println!("    Failed to resolve");
+            }
+        }
+    } else {
+        println!("  No reference found at position");
+    }
+    
     let hover1 = server.get_hover(&uri, pos1);
     println!("Hover: {:?}", hover1);
     assert!(hover1.is_some(), "Hover on IgnitionCmd in send action body should work");
@@ -3521,4 +3625,429 @@ fn test_hover_type_in_vehicle_send_accept() {
     let hover3 = server.get_hover(&uri, pos3);
     println!("Hover: {:?}", hover3);
     assert!(hover3.is_some(), "Hover on EngineStatus in message should work");
+}
+
+#[test]
+fn test_hover_torque_alias_with_stdlib() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server with stdlib enabled
+    let mut server = LspServer::with_config(false, None);
+
+    // Load stdlib
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
+    stdlib_loader
+        .load(server.workspace_mut())
+        .expect("Failed to load stdlib");
+    server
+        .workspace_mut()
+        .populate_all()
+        .expect("Failed to populate stdlib");
+
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    // This mimics the real-world case:
+    // - alias Torque for ISQ::TorqueValue (ISQ is from stdlib, re-exports from ISQMechanics)
+    // - action def uses Torque as a type
+    let source = r#"package Automotive {
+    import ISQ::*;
+    alias Torque for ISQ::TorqueValue;
+    action def DistributeTorque {
+        in driveshaftTorque : Torque;
+        out wheelToRoadTorque : Torque;
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: Check if ISQ::TorqueValue exists in stdlib
+    let resolver = server.resolver();
+    let torque_value = resolver.resolve_qualified("ISQ::TorqueValue");
+    println!("\n=== Debug: ISQ::TorqueValue resolution ===");
+    println!("ISQ::TorqueValue: {:?}", torque_value.map(|s| s.qualified_name()));
+
+    // Check the alias was created
+    let torque_alias = resolver.resolve_qualified("Automotive::Torque");
+    println!("Automotive::Torque: {:?}", torque_alias.map(|s| s.qualified_name()));
+
+    // Test hover on Torque type reference (line 4, character ~30)
+    // `        in driveshaftTorque : Torque;`
+    //                               ^-- around column 29-34
+    let pos = Position { line: 4, character: 30 };
+    println!("\n=== Test: Hover on Torque at line 4 ===");
+    let hover = server.get_hover(&uri, pos);
+    println!("Hover: {:?}", hover);
+
+    // First verify stdlib has TorqueValue
+    assert!(
+        torque_value.is_some(),
+        "ISQ::TorqueValue should be resolvable from stdlib"
+    );
+
+    // Then verify alias was created
+    assert!(
+        torque_alias.is_some(),
+        "Automotive::Torque alias should exist"
+    );
+
+    // Finally verify hover works
+    assert!(
+        hover.is_some(),
+        "Hover on Torque type reference should work"
+    );
+}
+
+#[test]
+fn test_hover_on_qualified_alias_target() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server with stdlib enabled
+    let mut server = LspServer::with_config(false, None);
+
+    // Load stdlib
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
+    stdlib_loader
+        .load(server.workspace_mut())
+        .expect("Failed to load stdlib");
+    server
+        .workspace_mut()
+        .populate_all()
+        .expect("Failed to populate stdlib");
+
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    // Line numbers (0-indexed):
+    // 0: package Automotive {
+    // 1:     import ISQ::*;
+    // 2:     alias Torque for ISQ::TorqueValue;
+    //                         ^-- ISQ starts around column 22
+    //                              ^-- TorqueValue starts around column 27
+    let source = r#"package Automotive {
+    import ISQ::*;
+    alias Torque for ISQ::TorqueValue;
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Test hover on "ISQ" part of ISQ::TorqueValue (line 2, around column 21)
+    let pos_isq = Position { line: 2, character: 21 };
+    println!("\n=== Test: Hover on ISQ at line 2 ===");
+    let hover_isq = server.get_hover(&uri, pos_isq);
+    println!("Hover on ISQ: {:?}", hover_isq);
+
+    // Test hover on "TorqueValue" part of ISQ::TorqueValue (line 2, around column 27)
+    let pos_torque_value = Position { line: 2, character: 27 };
+    println!("\n=== Test: Hover on TorqueValue at line 2 ===");
+    let hover_torque_value = server.get_hover(&uri, pos_torque_value);
+    println!("Hover on TorqueValue: {:?}", hover_torque_value);
+
+    // Both should work
+    assert!(
+        hover_isq.is_some(),
+        "Hover on ISQ (package) in alias target should work"
+    );
+    assert!(
+        hover_torque_value.is_some(),
+        "Hover on TorqueValue in alias target should work"
+    );
+}
+
+#[test]
+fn test_hover_on_nested_port_type_reference() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    // Create server with stdlib enabled
+    let mut server = LspServer::with_config(false, None);
+
+    // Load stdlib
+    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
+    stdlib_loader
+        .load(server.workspace_mut())
+        .expect("Failed to load stdlib");
+    server
+        .workspace_mut()
+        .populate_all()
+        .expect("Failed to populate stdlib");
+
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    // Reproduce the exact structure:
+    // requirement containing port containing typed usage
+    let source = r#"package Automotive {
+    import ISQ::*;
+    alias Torque for ISQ::TorqueValue;
+    
+    requirement def DrivePowerOutputRequirement;
+    
+    part def DriveSystem {
+        requirement drivePowerOutputRequirement : DrivePowerOutputRequirement {
+            port torqueOutPort {
+                out torque : Torque;
+            }
+        }
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: print all symbols
+    println!("\n=== All symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        if sym.qualified_name().contains("Automotive") {
+            println!("  {}", sym.qualified_name());
+        }
+    }
+
+    // Debug: print all references in file
+    println!("\n=== All references in test file ===");
+    let refs = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    for r in &refs {
+        println!("  {} at {:?}", r.source_qname, r.span);
+    }
+
+    // Test hover on Torque in `out torque : Torque;` (line 9)
+    // Line 9: `                out torque : Torque;`
+    //                                       ^-- around column 33
+    let pos = Position { line: 9, character: 33 };
+    println!("\n=== Test: Hover on Torque at line 9 ===");
+    let hover = server.get_hover(&uri, pos);
+    println!("Hover: {:?}", hover);
+
+    assert!(
+        hover.is_some(),
+        "Hover on Torque type in nested port usage should work"
+    );
+}
+#[test]
+fn test_hover_in_state_and_transition() {
+    use async_lsp::lsp_types::{Position, Url};
+    use syster_lsp::server::LspServer;
+
+    let mut server = LspServer::with_config(false, None);
+    let uri = Url::parse("file:///test.sysml").unwrap();
+
+    // This tests that references inside states and transitions are properly indexed
+    let source = r#"package VehicleStates {
+    item def IgnitionCmd {
+        attribute ignitionOnOff : IgnitionOnOff;
+    }
+    
+    enum def IgnitionOnOff {
+        on;
+        off;
+    }
+    
+    attribute def BrakePedalDepressed;
+    
+    state def VehicleController {
+        in port ignitionCmdPort;
+        
+        state operatingStates {
+            state off;
+            state starting;
+            state on;
+            
+            transition initial then off;
+            
+            transition off_To_starting
+                first off
+                accept ignitionCmd:IgnitionCmd via ignitionCmdPort
+                    if ignitionCmd.ignitionOnOff==IgnitionOnOff::on
+                then starting;
+        }
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: print all symbols
+    println!("\n=== All symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        if sym.qualified_name().contains("VehicleStates") {
+            println!("  {}", sym.qualified_name());
+        }
+    }
+
+    // Debug: print all references
+    println!("\n=== All references ===");
+    let refs = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    for r in &refs {
+        println!("  {} at {:?}", r.source_qname, r.span);
+    }
+
+    // Test hover on IgnitionCmd in accept clause
+    // Line 24: `                accept ignitionCmd:IgnitionCmd via ignitionCmdPort`
+    //                                             ^-- around column 35
+    let pos_ignition = Position { line: 24, character: 35 };
+    println!("\n=== Test: Hover on IgnitionCmd at line 24 ===");
+    let hover_ignition = server.get_hover(&uri, pos_ignition);
+    println!("Hover on IgnitionCmd: {:?}", hover_ignition);
+
+    // Test hover on IgnitionOnOff::on in guard
+    // Line 25: `                    if ignitionCmd.ignitionOnOff==IgnitionOnOff::on`
+    //                                                              ^-- around column 52
+    let pos_enum = Position { line: 25, character: 52 };
+    println!("\n=== Test: Hover on IgnitionOnOff at line 25 ===");
+    let hover_enum = server.get_hover(&uri, pos_enum);
+    println!("Hover on IgnitionOnOff: {:?}", hover_enum);
+}
+
+/// Test hover on references in #derivation connection with ::> operator
+/// This is a common pattern in SysML for requirement derivation
+#[test]
+fn test_hover_derivation_connection_references() {
+    use async_lsp::lsp_types::{Position, Url};
+    use syster_lsp::server::LspServer;
+
+    let mut server = LspServer::with_config(false, None);
+    let uri = Url::parse("file:///test.sysml").unwrap();
+
+    let source = r#"package Requirements {
+    requirement def MassRequirement;
+    
+    requirement vehicleSpecification {
+        requirement vehicleMassRequirement : MassRequirement;
+    }
+    
+    requirement engineSpecification {
+        requirement engineMassRequirement : MassRequirement;
+    }
+    
+    #derivation connection {
+        end #original ::> vehicleSpecification.vehicleMassRequirement;
+        end #derive ::> engineSpecification.engineMassRequirement;
+    }
+}"#;
+
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
+
+    // Debug: print all symbols
+    println!("\n=== All symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: print all references
+    println!("\n=== All references ===");
+    let refs = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    for r in &refs {
+        println!("  target={} source={} at {:?}", r.source_qname, r.source_qname, r.span);
+    }
+
+    // Test hover on 'vehicleSpecification' in ::> reference
+    // Line 12: `        end #original ::> vehicleSpecification.vehicleMassRequirement;`
+    //                                     ^-- around column 26
+    let pos_vehicle_spec = Position { line: 12, character: 26 };
+    println!("\n=== Test: Hover on vehicleSpecification at line 12 ===");
+    let hover_vehicle = server.get_hover(&uri, pos_vehicle_spec);
+    println!("Hover on vehicleSpecification: {:?}", hover_vehicle);
+    assert!(
+        hover_vehicle.is_some(),
+        "Hover on 'vehicleSpecification' in ::> reference should work"
+    );
+
+    // Test hover on 'vehicleMassRequirement' (the chained part)
+    // Line 12: `        end #original ::> vehicleSpecification.vehicleMassRequirement;`
+    //                                                         ^-- around column 47
+    let pos_mass_req = Position { line: 12, character: 47 };
+    println!("\n=== Test: Hover on vehicleMassRequirement at line 12 ===");
+    let hover_mass = server.get_hover(&uri, pos_mass_req);
+    println!("Hover on vehicleMassRequirement: {:?}", hover_mass);
+    assert!(
+        hover_mass.is_some(),
+        "Hover on 'vehicleMassRequirement' in ::> reference chain should work"
+    );
+
+    // Test hover on 'engineSpecification' in second ::> reference
+    // Line 13: `        end #derive ::> engineSpecification.engineMassRequirement;`
+    //                                  ^-- around column 24
+    let pos_engine_spec = Position { line: 13, character: 24 };
+    println!("\n=== Test: Hover on engineSpecification at line 13 ===");
+    let hover_engine = server.get_hover(&uri, pos_engine_spec);
+    println!("Hover on engineSpecification: {:?}", hover_engine);
+    assert!(
+        hover_engine.is_some(),
+        "Hover on 'engineSpecification' in ::> reference should work"
+    );
+}
+
+#[test]
+fn test_hover_attribute_redefines_with_value() {
+    use async_lsp::lsp_types::{Position, Url};
+
+    let mut server = LspServer::with_config(false, None);
+
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    // Test: Hover on 'mass' and 'peakHorsePower' in redefines with values
+    let source = r#"package Test {
+    attribute def MassValue;
+    attribute def PowerValue;
+    
+    part def Engine {
+        attribute mass : MassValue;
+        attribute peakHorsePower : PowerValue;
+    }
+    
+    part engine4Cyl : Engine {
+        attribute mass redefines mass = 180;
+        attribute peakHorsePower redefines peakHorsePower = 240;
+    }
+}"#;
+    //           123456789012345678901234567890123456789012345678901234567
+    // Line 10: "        attribute mass redefines mass = 180;"
+    //                                           ^--- mass at col 34
+    // Line 11: "        attribute peakHorsePower redefines peakHorsePower = 240;"
+    //                                                      ^--- peakHorsePower at col 46
+
+    server.open_document(&uri, source).expect("Should parse document");
+
+    // Debug: Print all symbols
+    println!("\n=== All Symbols ===");
+    for sym in server.workspace().symbol_table().iter_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    }
+
+    // Debug: Print all references with targets
+    println!("\n=== All references ===");
+    let ref_index = server.workspace().reference_index();
+    for target in ref_index.targets() {
+        let refs = ref_index.get_references(target);
+        for r in refs {
+            println!("  line={} col={}-{} target={} source={}", 
+                r.span.start.line, r.span.start.column, r.span.end.column,
+                target, r.source_qname);
+        }
+    }
+
+    // Test hover on 'mass' in 'redefines mass'
+    // Line 10 (0-indexed): "        attribute mass redefines mass = 180;"
+    let pos_mass = Position { line: 10, character: 34 };
+    println!("\n=== Test: Hover on 'mass' at line 10 col 34 ===");
+    let hover_mass = server.get_hover(&uri, pos_mass);
+    println!("Hover result: {:?}", hover_mass);
+    assert!(
+        hover_mass.is_some(),
+        "Hover on 'mass' in 'redefines mass' should return a result"
+    );
+
+    // Test hover on 'peakHorsePower' in 'redefines peakHorsePower'
+    // Line 11 (0-indexed): "        attribute peakHorsePower redefines peakHorsePower = 240;"
+    let pos_php = Position { line: 11, character: 46 };
+    println!("\n=== Test: Hover on 'peakHorsePower' at line 11 col 46 ===");
+    let hover_php = server.get_hover(&uri, pos_php);
+    println!("Hover result: {:?}", hover_php);
+    assert!(
+        hover_php.is_some(),
+        "Hover on 'peakHorsePower' in 'redefines peakHorsePower' should return a result"
+    );
 }

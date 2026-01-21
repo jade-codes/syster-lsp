@@ -240,12 +240,16 @@ pub fn format_rich_hover(
     if !relationships.is_empty() {
         use syster::core::constants::relationship_label;
         let resolver = Resolver::new(workspace.symbol_table());
+        // Use the symbol's scope for resolution to find local symbols correctly
+        let symbol_scope = symbol.scope_id();
         for (rel_type, targets) in relationships {
             let label = relationship_label(&rel_type);
             result.push_str(&format!("\n**{label}:**\n"));
             for target in targets {
-                // Try to make targets clickable too
-                if let Some(target_symbol) = resolver.resolve(&target)
+                // Try to make targets clickable - use resolve_in_scope for local resolution
+                let target_symbol = resolver.resolve(&target)
+                    .or_else(|| resolver.resolve_in_scope(&target, symbol_scope));
+                if let Some(target_symbol) = target_symbol
                     && let Some(target_file) = target_symbol.source_file()
                     && let Ok(target_uri) = Url::from_file_path(target_file)
                 {

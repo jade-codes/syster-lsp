@@ -11,7 +11,11 @@ impl LspServer {
         let path = uri_to_path(uri)?;
 
         // Find symbol at position - returns qualified name string
-        let (qualified_name, hover_range) = self.find_symbol_at_position(&path, position)?;
+        let result = self.find_symbol_at_position(&path, position);
+        if position.line == 1472 { // Line 1473 is 0-indexed as 1472
+
+        }
+        let (qualified_name, hover_range) = result?;
 
         // Look up the symbol using the resolver
         let resolver = self.resolver();

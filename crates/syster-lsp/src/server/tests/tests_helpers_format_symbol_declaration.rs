@@ -284,6 +284,8 @@ fn test_format_usage_part() {
         span: Some(test_span()),
         documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
     };
 
@@ -309,6 +311,8 @@ fn test_format_usage_attribute() {
         span: Some(test_span()),
         documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
     };
 
@@ -334,6 +338,8 @@ fn test_format_usage_action() {
         span: Some(test_span()),
         documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
     };
 
@@ -359,6 +365,8 @@ fn test_format_usage_port() {
         span: Some(test_span()),
         documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
     };
 
@@ -384,6 +392,8 @@ fn test_format_usage_requirement() {
         span: Some(test_span()),
         documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
     };
 
@@ -531,6 +541,8 @@ fn test_format_with_very_long_name() {
         documentation: None,
         redefines: Vec::new(),
         subsets: Vec::new(),
+        performs: Vec::new(),
+            references: Vec::new(),
     };
 
     let workspace = Workspace::<SyntaxFile>::new();
@@ -773,6 +785,8 @@ fn test_format_all_symbol_variants_produce_output() {
             span: None,
             documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
         },
         Symbol::Feature {
@@ -838,6 +852,8 @@ fn test_format_usage_lowercase_kind() {
         span: None,
         documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
     };
 

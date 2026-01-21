@@ -382,6 +382,8 @@ mod tests {
             span: Some(Span::from_coords(0, 0, 0, 10)),
             documentation: None,
             redefines: Vec::new(),
+            performs: Vec::new(),
+            references: Vec::new(),
             subsets: Vec::new(),
         };
 
