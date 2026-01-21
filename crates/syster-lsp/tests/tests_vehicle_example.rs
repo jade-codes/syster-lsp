@@ -5,7 +5,7 @@
 use async_lsp::lsp_types::{Position, Url};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use syster_lsp::server::LspServer;
 
 /// A failing reference with context
@@ -56,7 +56,7 @@ fn test_vehicle_example_all_references_have_hover() {
     for target in ref_index.targets() {
         let refs = ref_index.get_references(target);
         for r in refs {
-            if r.file == PathBuf::from("/test.sysml") {
+            if r.file == Path::new("/test.sysml") {
                 all_refs.push((
                     target.to_string(),
                     r.source_qname.clone(),
@@ -109,7 +109,7 @@ fn test_vehicle_example_all_references_have_hover() {
                     };
                     
                     // Categorize by pattern
-                    let pattern = categorize_pattern(&line_text, &target);
+                    let pattern = categorize_pattern(&line_text, target);
                     failing_by_pattern.entry(pattern).or_default().push(failure);
                 } else {
                     passing_count += 1;
@@ -125,7 +125,7 @@ fn test_vehicle_example_all_references_have_hover() {
                     line_text: line_text.trim().to_string(),
                 };
                 
-                let pattern = categorize_pattern(&line_text, &target);
+                let pattern = categorize_pattern(&line_text, target);
                 failing_by_pattern.entry(pattern).or_default().push(failure);
             }
         }
