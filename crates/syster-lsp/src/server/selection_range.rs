@@ -1,59 +1,78 @@
+
 //! Selection range support for the LSP server
 
 use super::LspServer;
-use super::helpers::span_to_lsp_range;
 use async_lsp::lsp_types::{Position, Range, SelectionRange};
 use std::path::Path;
-use syster::core::Position as CorePosition;
-use syster::semantic::find_selection_spans;
+use syster::ide;
 
 impl LspServer {
     /// Get selection ranges at the given positions in a document
     ///
     /// Returns a vector of SelectionRange chains, one for each input position.
     pub fn get_selection_ranges(
-        &self,
+        &mut self,
         file_path: &Path,
         positions: Vec<Position>,
     ) -> Vec<SelectionRange> {
-        let Some(workspace_file) = self.workspace.files().get(file_path) else {
+        let path_str = file_path.to_string_lossy();
+        let analysis = self.analysis_host.analysis();
+        
+        let Some(file_id) = analysis.get_file_id(&path_str) else {
             return positions
                 .iter()
-                .map(|p| self.default_selection_range(*p))
+                .map(|p| Self::default_selection_range(*p))
                 .collect();
         };
 
-        positions
+        // Collect ranges from analysis first
+        let all_ranges: Vec<Vec<ide::SelectionRange>> = positions
             .iter()
             .map(|pos| {
-                let core_pos = CorePosition::new(pos.line as usize, pos.character as usize);
-                let spans = find_selection_spans(workspace_file.content(), core_pos);
+                analysis.selection_ranges(
+                    file_id,
+                    pos.line,
+                    pos.character,
+                )
+            })
+            .collect();
 
-                if spans.is_empty() {
-                    self.default_selection_range(*pos)
+        // Now build the results without borrowing self
+        all_ranges
+            .into_iter()
+            .zip(positions.iter())
+            .map(|(ranges, pos)| {
+                if ranges.is_empty() {
+                    Self::default_selection_range(*pos)
                 } else {
-                    self.build_selection_range_chain(spans)
+                    Self::build_selection_range_chain(ranges)
                 }
             })
             .collect()
     }
 
-    /// Build a SelectionRange chain from spans (innermost to outermost)
-    fn build_selection_range_chain(&self, spans: Vec<syster::core::Span>) -> SelectionRange {
-        // spans are ordered from smallest (innermost) to largest (outermost)
+    /// Build a SelectionRange chain from IDE SelectionRanges (innermost to outermost)
+    fn build_selection_range_chain(ranges: Vec<ide::SelectionRange>) -> SelectionRange {
+        // ranges are ordered from smallest (innermost) to largest (outermost)
         // We need to build a chain where innermost points to outermost as parent
-        let mut iter = spans.into_iter().rev(); // Start from largest (outermost)
+        let mut iter = ranges.into_iter().rev(); // Start from largest (outermost)
 
-        let outermost = iter.next().expect("spans should not be empty");
+        let outermost = iter.next().expect("ranges should not be empty");
         let mut current = SelectionRange {
-            range: span_to_lsp_range(&outermost),
+            range: Range {
+                start: Position { line: outermost.start_line, character: outermost.start_col },
+                end: Position { line: outermost.end_line, character: outermost.end_col },
+            },
             parent: None,
         };
 
         // Build chain from outermost to innermost
-        for span in iter {
+        for r in iter {
             current = SelectionRange {
-                range: span_to_lsp_range(&span),
+                range: Range {
+                    start: Position { line: r.start_line, character: r.start_col },
+                    end: Position { line: r.end_line, character: r.end_col },
+                },
                 parent: Some(Box::new(current)),
             };
         }
@@ -62,7 +81,7 @@ impl LspServer {
     }
 
     /// Create a default selection range (single character) when no AST node is found
-    fn default_selection_range(&self, pos: Position) -> SelectionRange {
+    fn default_selection_range(pos: Position) -> SelectionRange {
         SelectionRange {
             range: Range {
                 start: pos,

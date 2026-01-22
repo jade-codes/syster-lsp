@@ -5,15 +5,15 @@
 use async_lsp::lsp_types::{Position, Url};
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use syster_lsp::server::LspServer;
 
 /// A failing reference with context
 #[derive(Debug)]
 struct FailingReference {
-    line: usize,
-    col_start: usize,
-    col_end: usize,
+    line: u32,
+    col_start: u32,
+    col_end: u32,
     target: String,
     source: String,
     line_text: String,
@@ -39,30 +39,18 @@ fn test_vehicle_example_all_references_have_hover() {
     
     server.open_document(&uri, &source).expect("Should parse document");
     
-    // Get all references from the reference index
-    let ref_index = server.workspace().reference_index();
+    // Use test helper to get references
+    use syster_lsp::test_helpers::LspServerTestExt;
     
     println!("\n{}", "=".repeat(80));
     println!("VEHICLE EXAMPLE REFERENCE COVERAGE TEST");
     println!("{}\n", "=".repeat(80));
     
-    // Collect all references with their targets
-    let mut all_refs: Vec<(String, String, usize, usize, usize)> = Vec::new(); // (target, source, line, col_start, col_end)
-    
-    for target in ref_index.targets() {
-        let refs = ref_index.get_references(target);
-        for r in refs {
-            if r.file == Path::new("/test.sysml") {
-                all_refs.push((
-                    target.to_string(),
-                    r.source_qname.clone(),
-                    r.span.start.line,
-                    r.span.start.column,
-                    r.span.end.column,
-                ));
-            }
-        }
-    }
+    // Collect all references with their targets from the test file
+    let refs = server.references_in_file("/test.sysml");
+    let mut all_refs: Vec<(String, String, u32, u32, u32)> = refs.into_iter()
+        .map(|r| (r.target, r.source_symbol.unwrap_or_default(), r.start_line, r.start_col, r.end_col))
+        .collect();
     
     // Sort by line number for easier reading
     all_refs.sort_by_key(|(_, _, line, col, _)| (*line, *col));
@@ -76,12 +64,12 @@ fn test_vehicle_example_all_references_have_hover() {
     // Test each reference
     for (target, source, line, col_start, col_end) in &all_refs {
         let pos = Position { 
-            line: *line as u32, 
-            character: *col_start as u32,
+            line: *line, 
+            character: *col_start,
         };
         
         let hover_result = server.get_hover(&uri, pos);
-        let line_text = lines.get(*line).unwrap_or(&"").to_string();
+        let line_text = lines.get(*line as usize).unwrap_or(&"").to_string();
         
         match hover_result {
             Some(hover) => {

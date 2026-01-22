@@ -1,48 +1,54 @@
 use super::LspServer;
-use async_lsp::lsp_types::{DocumentSymbol, SymbolKind};
+use async_lsp::lsp_types::{DocumentSymbol, Position, Range, SymbolKind};
 use std::collections::HashMap;
 use std::path::Path;
-use syster::semantic::symbol_table::Symbol;
+use syster::hir::SymbolKind as HirSymbolKind;
 
 impl LspServer {
-    /// Get all symbols in a document for the outline view
-    pub fn get_document_symbols(&self, file_path: &Path) -> Vec<DocumentSymbol> {
-        let mut flat_symbols = Vec::new();
-        let file_path_str = file_path.to_str().unwrap_or("");
+    /// Get all symbols in a document for the outline view.
+    ///
+    /// Uses the new HIR-based IDE layer.
+    pub fn get_document_symbols(&mut self, file_path: &Path) -> Vec<DocumentSymbol> {
+        let path_str = file_path.to_string_lossy();
+        let analysis = self.analysis_host.analysis();
+        
+        let file_id = match analysis.get_file_id(&path_str) {
+            Some(id) => id,
+            None => return Vec::new(),
+        };
 
-        // Use indexed lookup for O(1) file access instead of iterating all symbols
-        for symbol in self
-            .workspace
-            .symbol_table()
-            .get_symbols_for_file(file_path_str)
-        {
-            if let Some(span) = symbol.span() {
-                let range = super::helpers::span_to_lsp_range(&span);
-                let selection_range = range;
+        // Use the Analysis document_symbols method
+        let symbols = analysis.document_symbols(file_id);
 
-                let symbol_kind = match symbol {
-                    Symbol::Package { .. } => SymbolKind::NAMESPACE,
-                    Symbol::Classifier { .. } | Symbol::Definition { .. } => SymbolKind::CLASS,
-                    Symbol::Feature { .. } | Symbol::Usage { .. } => SymbolKind::PROPERTY,
-                    Symbol::Alias { .. } => SymbolKind::VARIABLE,
-                    Symbol::Import { .. } | Symbol::Comment { .. } => continue, // Skip imports and comments in document symbols
+        let flat_symbols: Vec<(String, DocumentSymbol)> = symbols
+            .into_iter()
+            .map(|sym| {
+                let range = Range {
+                    start: Position {
+                        line: sym.start_line,
+                        character: sym.start_col,
+                    },
+                    end: Position {
+                        line: sym.end_line,
+                        character: sym.end_col,
+                    },
                 };
 
                 let doc_symbol = DocumentSymbol {
-                    name: symbol.name().to_string(),
-                    detail: Some(symbol.qualified_name().to_string()),
-                    kind: symbol_kind,
+                    name: sym.name.to_string(),
+                    detail: Some(sym.qualified_name.to_string()),
+                    kind: convert_symbol_kind(sym.kind),
                     range,
-                    selection_range,
+                    selection_range: range,
                     children: Some(Vec::new()),
                     tags: None,
                     #[allow(deprecated)]
                     deprecated: None,
                 };
 
-                flat_symbols.push((symbol.qualified_name().to_string(), doc_symbol));
-            }
-        }
+                (sym.qualified_name.to_string(), doc_symbol)
+            })
+            .collect();
 
         // Build hierarchy from qualified names
         self.build_symbol_hierarchy(flat_symbols)
@@ -92,5 +98,35 @@ impl LspServer {
         let mut root_symbols: Vec<DocumentSymbol> = symbol_map.into_values().collect();
         root_symbols.sort_by(|a, b| a.name.cmp(&b.name));
         root_symbols
+    }
+}
+
+fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
+    match kind {
+        HirSymbolKind::Package => SymbolKind::NAMESPACE,
+        
+        // Definitions are classes
+        HirSymbolKind::PartDef | HirSymbolKind::ItemDef | HirSymbolKind::ActionDef |
+        HirSymbolKind::PortDef | HirSymbolKind::AttributeDef | HirSymbolKind::ConnectionDef |
+        HirSymbolKind::InterfaceDef | HirSymbolKind::AllocationDef | HirSymbolKind::RequirementDef |
+        HirSymbolKind::ConstraintDef | HirSymbolKind::StateDef | HirSymbolKind::CalculationDef |
+        HirSymbolKind::UseCaseDef | HirSymbolKind::AnalysisCaseDef | HirSymbolKind::ConcernDef |
+        HirSymbolKind::ViewDef | HirSymbolKind::ViewpointDef | HirSymbolKind::RenderingDef |
+        HirSymbolKind::EnumerationDef => SymbolKind::CLASS,
+        
+        // Usages are properties
+        HirSymbolKind::PartUsage | HirSymbolKind::ItemUsage | HirSymbolKind::ActionUsage |
+        HirSymbolKind::PortUsage | HirSymbolKind::AttributeUsage | HirSymbolKind::ConnectionUsage |
+        HirSymbolKind::InterfaceUsage | HirSymbolKind::AllocationUsage | HirSymbolKind::RequirementUsage |
+        HirSymbolKind::ConstraintUsage | HirSymbolKind::StateUsage | HirSymbolKind::CalculationUsage |
+        HirSymbolKind::ReferenceUsage | HirSymbolKind::OccurrenceUsage | HirSymbolKind::FlowUsage => {
+            SymbolKind::PROPERTY
+        }
+        
+        HirSymbolKind::Alias => SymbolKind::VARIABLE,
+        HirSymbolKind::Import => SymbolKind::NAMESPACE,
+        HirSymbolKind::Comment => SymbolKind::STRING,
+        HirSymbolKind::Dependency => SymbolKind::VARIABLE,
+        HirSymbolKind::Other => SymbolKind::VARIABLE,
     }
 }

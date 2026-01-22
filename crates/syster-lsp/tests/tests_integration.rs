@@ -3,57 +3,45 @@
 //! Tests the full stack from server initialization through symbol resolution
 
 use std::path::PathBuf;
-use std::sync::OnceLock;
-use syster::semantic::Workspace;
-use syster::syntax::file::SyntaxFile;
 use syster_lsp::LspServer;
+use syster_lsp::test_helpers::LspServerTestExt;
 
-/// Shared stdlib workspace loaded once for all tests that need it.
-/// This avoids re-parsing the ~100+ stdlib files for each test.
-static STDLIB_WORKSPACE: OnceLock<Workspace<SyntaxFile>> = OnceLock::new();
+/// Helper: Get the stdlib path for tests
+fn stdlib_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library")
+}
 
-/// Get a reference to the pre-loaded stdlib workspace.
-/// The first call loads and populates the stdlib; subsequent calls return the cached version.
-fn get_stdlib_workspace() -> &'static Workspace<SyntaxFile> {
-    STDLIB_WORKSPACE.get_or_init(|| {
-        let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+/// Helper: Create an LspServer with stdlib loaded
+fn create_server_with_stdlib() -> LspServer {
+    let mut server = LspServer::with_config(true, Some(stdlib_path()));
+    server.ensure_workspace_loaded().expect("Failed to load stdlib");
+    server
+}
 
-        let mut workspace: Workspace<SyntaxFile> = Workspace::new();
-        let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-        stdlib_loader
-            .load(&mut workspace)
-            .expect("Failed to load stdlib");
-        workspace.populate_all().expect("Failed to populate stdlib");
-        workspace
-    })
+/// Helper: Create an AnalysisHost with stdlib loaded
+fn create_analysis_host_with_stdlib() -> syster::ide::AnalysisHost {
+    use syster::ide::AnalysisHost;
+    use syster::project::StdLibLoader;
+    
+    let mut host = AnalysisHost::new();
+    let mut stdlib_loader = StdLibLoader::with_path(stdlib_path());
+    stdlib_loader.ensure_loaded_into_host(&mut host).expect("Failed to load stdlib");
+    host.mark_dirty();
+    host
 }
 
 #[test]
 fn test_server_initialization() {
-    // This test explicitly loads stdlib to test initialization
-    let mut server = LspServer::with_config(false, None);
-
-    // Load stdlib for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-    stdlib_loader
-        .load(server.workspace_mut())
-        .expect("Failed to load stdlib");
-
-    // Populate symbol table from loaded files
-    server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate symbols");
+    let mut server = create_server_with_stdlib();
 
     // Verify workspace is created
     assert!(
-        !server.workspace().files().is_empty(),
+        server.loaded_file_count() > 0,
         "Stdlib files should be loaded"
     );
 
     // Verify symbols are populated
-    let symbol_count = server.workspace().symbol_table().iter_symbols().count();
+    let symbol_count = server.symbol_count();
     assert!(
         symbol_count > 0,
         "Symbol table should be populated with stdlib symbols"
@@ -63,17 +51,16 @@ fn test_server_initialization() {
 #[test]
 fn test_ensure_workspace_loaded() {
     // Create server with explicit stdlib path for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let mut server = LspServer::with_config(true, Some(stdlib_path));
+    let mut server = LspServer::with_config(true, Some(stdlib_path()));
 
     // Initially workspace should be empty
     assert_eq!(
-        server.workspace().files().len(),
+        server.loaded_file_count(),
         0,
         "Workspace should start empty"
     );
     assert!(
-        !server.workspace().has_stdlib(),
+        !server.has_stdlib_loaded(),
         "Stdlib should not be loaded initially"
     );
 
@@ -84,19 +71,18 @@ fn test_ensure_workspace_loaded() {
 
     // Verify stdlib was loaded
     assert!(
-        server.workspace().has_stdlib(),
+        server.has_stdlib_loaded(),
         "Stdlib should be marked as loaded"
     );
     assert!(
-        !server.workspace().files().is_empty(),
+        server.loaded_file_count() > 0,
         "Workspace should have files after stdlib loading"
     );
 
     // Verify we can find specific stdlib files
     let has_base = server
-        .workspace()
-        .files()
-        .keys()
+        .loaded_file_paths()
+        .iter()
         .any(|p| p.to_string_lossy().contains("Base.kerml"));
     assert!(has_base, "Should have loaded Base.kerml from stdlib");
 
@@ -105,8 +91,8 @@ fn test_ensure_workspace_loaded() {
         .ensure_workspace_loaded()
         .expect("Should load stdlib");
     assert_eq!(
-        server.workspace().files().len(),
-        server.workspace().files().len(),
+        server.loaded_file_count(),
+        server.loaded_file_count(),
         "Files count should remain the same on second call"
     );
 }
@@ -114,7 +100,7 @@ fn test_ensure_workspace_loaded() {
 #[test]
 fn test_hover_on_cross_file_symbol() {
     // Create server with explicit stdlib path for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib first
@@ -125,7 +111,7 @@ fn test_hover_on_cross_file_symbol() {
     // Debug: Check how many KerML vs SysML files
     let mut _kerml_count = 0;
     let mut _sysml_count = 0;
-    for path in server.workspace().files().keys() {
+    for path in server.loaded_file_paths().iter() {
         if path.extension().and_then(|e| e.to_str()) == Some("kerml") {
             _kerml_count += 1;
         } else if path.extension().and_then(|e| e.to_str()) == Some("sysml") {
@@ -135,16 +121,15 @@ fn test_hover_on_cross_file_symbol() {
 
     // Check if ScalarValues.kerml is loaded
     let _scalar_values_path = server
-        .workspace()
-        .files()
-        .keys()
-        .find(|p| p.to_string_lossy().contains("ScalarValues.kerml"));
+        .loaded_file_paths()
+        .iter()
+        .find(|p| p.to_string_lossy().contains("ScalarValues.kerml"))
+        .cloned();
 
     // Find TradeStudies.sysml file
     let trade_studies_path = server
-        .workspace()
-        .files()
-        .keys()
+        .loaded_file_paths()
+        .iter()
         .find(|p| p.to_string_lossy().contains("TradeStudies.sysml"))
         .expect("Should have TradeStudies.sysml in stdlib")
         .clone();
@@ -189,17 +174,10 @@ fn test_hover_on_cross_file_symbol() {
     } else {
         // Debug: Check if ScalarValue exists in symbol table
         let _scalar_value_symbols: Vec<_> = server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .filter(|s| s.name() == "ScalarValue" || s.qualified_name().contains("ScalarValue"))
-            .map(|s| {
-                (
-                    s.name().to_string(),
-                    s.qualified_name().to_string(),
-                    s.span().is_some(),
-                )
-            })
+            .all_symbols()
+            .into_iter()
+            .filter(|s| s.name == "ScalarValue" || s.qualified_name.contains("ScalarValue"))
+            .map(|s| (s.name.clone(), s.qualified_name.clone(), true))
             .collect();
 
         panic!("Hover should work for cross-file symbol ScalarValue");
@@ -209,36 +187,29 @@ fn test_hover_on_cross_file_symbol() {
 #[test]
 fn test_stdlib_symbols_present() {
     // This test explicitly loads stdlib to verify symbols
-    let mut server = LspServer::with_config(false, None);
+    let stdlib_path = stdlib_path();
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
 
-    // Load stdlib for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-    stdlib_loader
-        .load(server.workspace_mut())
+    // Load stdlib 
+    server
+        .ensure_workspace_loaded()
         .expect("Failed to load stdlib");
 
-    // Populate symbol table from loaded files
-    server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate symbols");
-
-    let symbol_table = server.workspace().symbol_table();
+    let all_symbols = server.all_symbols();
 
     // Show what packages are actually loaded
-    let packages: Vec<_> = symbol_table
-        .iter_symbols()
-        .filter(|s| s.qualified_name() == s.name() && !s.name().contains("::"))
+    let packages: Vec<_> = all_symbols
+        .iter()
+        .filter(|s| s.qualified_name == s.name && !s.name.contains("::"))
         .take(20)
         .collect();
 
     for _symbol in packages {}
 
     // Show symbols containing "Case" to debug why Case isn't found
-    let case_symbols: Vec<_> = symbol_table
-        .iter_symbols()
-        .filter(|s| s.name().contains("Case") || s.qualified_name().contains("Case"))
+    let case_symbols: Vec<_> = all_symbols
+        .iter()
+        .filter(|s| s.name.contains("Case") || s.qualified_name.contains("Case"))
         .take(10)
         .collect();
 
@@ -248,7 +219,7 @@ fn test_stdlib_symbols_present() {
     let test_symbols = vec!["Part", "Attribute", "Item"];
 
     for simple_name in test_symbols {
-        let _found = symbol_table.iter_symbols().any(|s| s.name() == simple_name);
+        let _found = all_symbols.iter().any(|s| s.name == simple_name);
     }
 }
 
@@ -272,42 +243,34 @@ package TestPackage {
     // Verify file is in workspace
     let path = PathBuf::from("/test.sysml");
     assert!(
-        server.workspace().files().contains_key(&path),
+        server.has_file_path(&path),
         "File should be in workspace"
     );
 }
 #[test]
 fn test_symbol_resolution_after_population() {
     // This test explicitly loads stdlib to test resolution
-    let mut server = LspServer::with_config(false, None);
+    let stdlib_path = stdlib_path();
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
 
-    // Load stdlib for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-    stdlib_loader
-        .load(server.workspace_mut())
+    // Load stdlib
+    server
+        .ensure_workspace_loaded()
         .expect("Failed to load stdlib");
 
-    // Populate symbol table from loaded files
-    server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate symbols");
-
     // Get some actual symbols from the table to verify resolution works
-    let symbol_table = server.workspace().symbol_table();
+    let all_symbols = server.all_symbols();
 
-    if symbol_table.iter_symbols().next().is_none() {
+    if all_symbols.is_empty() {
         panic!("Symbol table is empty - stdlib population may have failed");
     }
 
-    // Test resolving the first few symbols by their simple names
-    let resolver = server.resolver();
-    let symbols_vec: Vec<_> = symbol_table.iter_symbols().take(10).collect();
+    // Test finding the first few symbols by their simple names
+    let symbols_vec: Vec<_> = all_symbols.iter().take(10).collect();
 
     for symbol in &symbols_vec {
-        let simple_name = symbol.name();
-        let _resolved = resolver.resolve(simple_name);
+        let simple_name = &symbol.name;
+        let _resolved = server.has_symbol(simple_name);
     }
 }
 
@@ -340,27 +303,23 @@ package AnotherPackage {
 
     // Debug: Show what's actually in the symbol table FIRST
     let our_symbols: Vec<_> = server
-        .workspace()
-        .symbol_table()
-        .iter_symbols()
-        .filter(|s| s.qualified_name().contains("My"))
+        .all_symbols()
+        .into_iter()
+        .filter(|s| s.qualified_name.contains("My"))
         .collect();
     for _symbol in our_symbols {}
 
-    // Now try to resolve symbols
-    let resolver = server.resolver();
-
-    // Should find MyPart (defined in file1)
-    let my_part = resolver.resolve("MyPart");
+    // Check for symbols by name (replacing resolver.resolve())
+    let my_part = server.find_symbol("MyPart");
 
     if let Some(symbol) = my_part {
         // Check if it has the right qualified name
-        assert_eq!(symbol.qualified_name(), "MyPackage::MyPart");
+        assert_eq!(symbol.qualified_name, "MyPackage::MyPart");
     }
 
     // Should also find MyPort
-    let _my_port = resolver.resolve("MyPort");
-    // assert!(my_port.is_some(), "Should find MyPort symbol");
+    let _my_port = server.has_symbol("MyPort");
+    // assert!(my_port, "Should find MyPort symbol");
 
     // Resolver doesn't work - it only searches current scope
     // But hover should work because it does global search
@@ -816,7 +775,7 @@ fn test_timing_with_stdlib_loaded() {
     use tokio_util::sync::CancellationToken;
 
     // Create server with stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
     let mut server = syster_lsp::LspServer::with_config(true, Some(stdlib_path.clone()));
 
     // Load stdlib
@@ -827,19 +786,17 @@ fn test_timing_with_stdlib_loaded() {
         "ensure_workspace_loaded (stdlib): {:.3}ms",
         start.elapsed().as_micros() as f64 / 1000.0
     );
-    println!("Workspace files: {}", server.workspace().files().len());
+    println!("Workspace files: {}", server.loaded_file_count());
     println!(
         "Symbols: {}",
-        server.workspace().symbol_table().iter_symbols().count()
+        server.symbol_count()
     );
 
     // Find AnalysisTooling.sysml
     let analysis_tooling_path = server
-        .workspace()
-        .files()
-        .keys()
-        .find(|p| p.to_string_lossy().contains("AnalysisTooling.sysml"))
-        .cloned();
+        .loaded_file_paths()
+        .into_iter()
+        .find(|p| p.to_string_lossy().contains("AnalysisTooling.sysml"));
 
     if let Some(path) = analysis_tooling_path {
         let text = std::fs::read_to_string(&path).unwrap();
@@ -893,55 +850,48 @@ fn test_timing_with_stdlib_loaded() {
 /// two relationships for ScalarQuantityValue
 #[test]
 fn test_hover_temperature_difference_value_no_duplicate_specialization() {
-    // Use shared pre-loaded stdlib workspace
-    let workspace = get_stdlib_workspace();
+    // Create server with stdlib loaded
+    let stdlib_path = stdlib_path();
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
+    server.ensure_workspace_loaded().expect("Failed to load stdlib");
 
     // Find ISQ::TemperatureDifferenceValue symbol
-    let symbol_table = workspace.symbol_table();
-    let temp_diff_symbol = symbol_table
-        .iter_symbols()
-        .find(|sym| sym.qualified_name() == "ISQ::TemperatureDifferenceValue");
+    let temp_diff_symbol = server
+        .find_symbol_qualified("ISQ::TemperatureDifferenceValue");
 
     assert!(
         temp_diff_symbol.is_some(),
         "Should find TemperatureDifferenceValue"
     );
-
-    // Verify the symbol is indexed in reference_index
-    let index = workspace.reference_index();
-    let symbol = temp_diff_symbol.unwrap();
-
-    // Check that the symbol has references (it's used elsewhere in stdlib)
-    // The ReferenceIndex now stores only qualified names for reverse lookups
-    let sources = index.get_sources(symbol.qualified_name());
+    
+    // Symbol found is enough to verify the test passes
     println!(
-        "Sources referencing TemperatureDifferenceValue: {:?}",
-        sources
+        "Found TemperatureDifferenceValue: {:?}",
+        temp_diff_symbol.as_ref().map(|s| &s.qualified_name)
     );
 }
 
 /// Test that hover for TemperatureDifferenceValue doesn't show duplicate relationships
 #[test]
 fn test_hover_output_temperature_difference_value() {
-    use syster_lsp::server::helpers::format_rich_hover;
-
-    // Use shared pre-loaded stdlib workspace
-    let workspace = get_stdlib_workspace();
+    let mut host = create_analysis_host_with_stdlib();
+    let analysis = host.analysis();
 
     // Find ISQ::TemperatureDifferenceValue symbol
-    let symbol_table = workspace.symbol_table();
-    let temp_diff_symbol = symbol_table
-        .iter_symbols()
-        .find(|sym| sym.qualified_name() == "ISQ::TemperatureDifferenceValue");
+    let symbol = analysis.symbol_index()
+        .all_symbols()
+        .find(|sym| sym.qualified_name.as_ref() == "ISQ::TemperatureDifferenceValue");
 
     assert!(
-        temp_diff_symbol.is_some(),
+        symbol.is_some(),
         "Should find TemperatureDifferenceValue"
     );
-    let symbol = temp_diff_symbol.unwrap();
+    let sym = symbol.unwrap();
 
-    // Generate the actual hover output
-    let hover_output = format_rich_hover(symbol, workspace);
+    // Generate the actual hover output using the IDE layer
+    let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
+    assert!(hover_result.is_some(), "Should get hover result");
+    let hover_output = hover_result.unwrap().contents;
 
     println!("=== HOVER OUTPUT ===");
     println!("{hover_output}");
@@ -957,25 +907,24 @@ fn test_hover_output_temperature_difference_value() {
 
 #[test]
 fn test_hover_output_celsius_temperature_value() {
-    use syster_lsp::server::helpers::format_rich_hover;
-
-    // Use shared pre-loaded stdlib workspace
-    let workspace = get_stdlib_workspace();
+    let mut host = create_analysis_host_with_stdlib();
+    let analysis = host.analysis();
 
     // Find ISQThermodynamics::CelsiusTemperatureValue symbol
-    let symbol_table = workspace.symbol_table();
-    let celsius_symbol = symbol_table
-        .iter_symbols()
-        .find(|sym| sym.qualified_name() == "ISQThermodynamics::CelsiusTemperatureValue");
+    let symbol = analysis.symbol_index()
+        .all_symbols()
+        .find(|sym| sym.qualified_name.as_ref() == "ISQThermodynamics::CelsiusTemperatureValue");
 
     assert!(
-        celsius_symbol.is_some(),
+        symbol.is_some(),
         "Should find CelsiusTemperatureValue"
     );
-    let symbol = celsius_symbol.unwrap();
+    let sym = symbol.unwrap();
 
-    // Generate the actual hover output
-    let hover_output = format_rich_hover(symbol, workspace);
+    // Generate the actual hover output using the IDE layer
+    let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
+    assert!(hover_result.is_some(), "Should get hover result");
+    let hover_output = hover_result.unwrap().contents;
 
     println!("=== HOVER OUTPUT (CelsiusTemperatureValue) ===");
     println!("{hover_output}");
@@ -991,34 +940,33 @@ fn test_hover_output_celsius_temperature_value() {
 
 #[test]
 fn test_hover_at_position_temperature_difference_value() {
-    use syster_lsp::server::helpers::format_rich_hover;
-
-    // Use shared pre-loaded stdlib workspace
-    let workspace = get_stdlib_workspace();
+    let mut host = create_analysis_host_with_stdlib();
+    let analysis = host.analysis();
 
     // Check: are there multiple symbols with name "TemperatureDifferenceValue"?
-    let symbol_table = workspace.symbol_table();
-    let matching_symbols: Vec<_> = symbol_table
-        .iter_symbols()
-        .filter(|sym| sym.name() == "TemperatureDifferenceValue")
+    let matching_symbols: Vec<_> = analysis.symbol_index()
+        .all_symbols()
+        .filter(|sym| sym.name.as_ref() == "TemperatureDifferenceValue")
         .collect();
 
     println!("=== Symbols named 'TemperatureDifferenceValue' ===");
     for sym in &matching_symbols {
-        println!("  QName: {}", sym.qualified_name());
+        println!("  QName: {}", sym.qualified_name);
     }
     println!("Total: {}", matching_symbols.len());
 
     // Now generate hover for each and check
     for sym in &matching_symbols {
-        let hover = format_rich_hover(sym, workspace);
+        let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
+        assert!(hover_result.is_some(), "Should get hover for {}", sym.qualified_name);
+        let hover = hover_result.unwrap().contents;
         let count = hover.matches("ScalarQuantityValue").count();
-        println!("\n--- Hover for {} ---\n{}", sym.qualified_name(), hover);
+        println!("\n--- Hover for {} ---\n{}", sym.qualified_name, hover);
         assert_eq!(
             count,
             1,
             "Should have exactly 1 ScalarQuantityValue in hover for {}",
-            sym.qualified_name()
+            sym.qualified_name
         );
     }
 }
@@ -1026,31 +974,16 @@ fn test_hover_at_position_temperature_difference_value() {
 #[test]
 fn test_lsp_hover_isq_temperature_difference_value() {
     use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
-    use std::path::PathBuf;
-    use syster_lsp::LspServer;
 
-    // Create LSP server
-    let mut server = LspServer::with_config(false, None);
-
-    // Load stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path.clone());
-    stdlib_loader
-        .load(server.workspace_mut())
-        .expect("Failed to load stdlib");
-    server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate");
+    // Create server with stdlib
+    let mut server = create_server_with_stdlib();
 
     // Find ISQ.sysml file
     let isq_path = server
-        .workspace()
-        .files()
-        .keys()
+        .loaded_file_paths()
+        .into_iter()
         .find(|p| p.to_string_lossy().ends_with("ISQ.sysml"))
-        .expect("Should have ISQ.sysml in stdlib")
-        .clone();
+        .expect("Should have ISQ.sysml in stdlib");
 
     // Open the document
     let abs_path = std::fs::canonicalize(&isq_path).expect("Should canonicalize path");
@@ -1138,24 +1071,17 @@ fn test_lsp_hover_with_auto_discovered_stdlib() {
     println!("Using stdlib from: {stdlib_path:?}");
 
     // Create LSP server and set up stdlib explicitly at production path
-    let mut server = LspServer::with_config(false, None);
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path.clone());
-    stdlib_loader
-        .load(server.workspace_mut())
-        .expect("Failed to load stdlib");
+    let mut server = LspServer::with_config(true, Some(stdlib_path.clone()));
     server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate");
+        .ensure_workspace_loaded()
+        .expect("Failed to load stdlib");
 
     // Find ISQ.sysml in the loaded workspace
     let isq_path = server
-        .workspace()
-        .files()
-        .keys()
+        .loaded_file_paths()
+        .into_iter()
         .find(|p| p.to_string_lossy().ends_with("ISQ.sysml"))
-        .expect("Should have ISQ.sysml in stdlib")
-        .clone();
+        .expect("Should have ISQ.sysml in stdlib");
 
     println!("ISQ.sysml path from workspace: {isq_path:?}");
 
@@ -1254,7 +1180,7 @@ fn test_hover_no_duplicates_after_file_update() {
     server.parse_document(&uri);
 
     // Helper to get hover for "Vehicle" and check for duplicates
-    let check_hover = |server: &LspServer, iteration: usize| {
+    let check_hover = |server: &mut LspServer, iteration: usize| {
         // Hover over "Vehicle" in "part def Vehicle"
         let position = Position {
             line: 2,
@@ -1303,7 +1229,7 @@ fn test_hover_no_duplicates_after_file_update() {
     };
 
     // Check hover initially
-    let initial_content = check_hover(&server, 0);
+    let initial_content = check_hover(&mut server, 0);
 
     // Simulate multiple file updates (like saving the file repeatedly)
     for i in 1..=3 {
@@ -1321,7 +1247,7 @@ fn test_hover_no_duplicates_after_file_update() {
         server.parse_document(&uri);
 
         // Check hover again
-        let new_content = check_hover(&server, i);
+        let new_content = check_hover(&mut server, i);
 
         // Content should be identical to initial (no accumulating duplicates)
         assert_eq!(
@@ -1359,7 +1285,7 @@ fn test_hover_referenced_by_count_stable_after_updates() {
     server.parse_document(&uri);
 
     // Get initial hover for "Base" and count references
-    let get_reference_count = |server: &LspServer| -> Option<usize> {
+    let get_reference_count = |server: &mut LspServer| -> Option<usize> {
         let position = Position {
             line: 2,
             character: 22,
@@ -1385,7 +1311,7 @@ fn test_hover_referenced_by_count_stable_after_updates() {
         }
     };
 
-    let initial_count = get_reference_count(&server);
+    let initial_count = get_reference_count(&mut server);
     println!("Initial reference count: {initial_count:?}");
 
     // The exact count depends on what relationships are tracked
@@ -1407,7 +1333,7 @@ fn test_hover_referenced_by_count_stable_after_updates() {
         );
         server.parse_document(&uri);
 
-        let count = get_reference_count(&server);
+        let count = get_reference_count(&mut server);
         println!("Reference count after update {i}: {count:?}");
 
         assert_eq!(
@@ -1425,7 +1351,7 @@ fn test_hover_no_duplicates_with_stdlib_after_updates() {
         HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
     };
 
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib
@@ -1454,7 +1380,7 @@ part cal : Calculator;
     server.parse_document(&uri);
 
     // Helper to get hover content for "Calculator"
-    let get_hover_content = |server: &LspServer| -> Option<String> {
+    let get_hover_content = |server: &mut LspServer| -> Option<String> {
         let position = Position {
             line: 3,
             character: 12, // Position of "Calculator" in "part def Calculator"
@@ -1468,7 +1394,7 @@ part cal : Calculator;
         }
     };
 
-    let initial_content = get_hover_content(&server);
+    let initial_content = get_hover_content(&mut server);
     println!("=== INITIAL HOVER ===\n{initial_content:?}\n");
     assert!(initial_content.is_some(), "Should get initial hover");
 
@@ -1490,7 +1416,7 @@ part cal : Calculator;
         );
         server.parse_document(&uri);
 
-        let content = get_hover_content(&server);
+        let content = get_hover_content(&mut server);
         let ref_sections = content.as_ref().map(|c| count_refs(c)).unwrap_or(0);
         println!("Update {i}: 'Referenced by' sections = {ref_sections}");
 
@@ -1551,7 +1477,7 @@ package Usage {
     server.open_document(&uri_b, source_b_with_import).unwrap();
 
     // Helper to get hover content for "Vehicle" in file A
-    let get_vehicle_hover = |server: &LspServer| -> Option<String> {
+    let get_vehicle_hover = |server: &mut LspServer| -> Option<String> {
         let position = Position {
             line: 2,
             character: 16, // Position of "Vehicle" in "part def Vehicle"
@@ -1566,7 +1492,7 @@ package Usage {
     };
 
     // Check initial hover - should mention file B as an import reference
-    let initial_hover = get_vehicle_hover(&server);
+    let initial_hover = get_vehicle_hover(&mut server);
     println!("=== INITIAL HOVER (with import) ===");
     println!("{}", initial_hover.as_ref().unwrap_or(&"None".to_string()));
 
@@ -1596,7 +1522,7 @@ package Usage {
     server.parse_document(&uri_b);
 
     // Check hover again - should NOT reference file B anymore
-    let updated_hover = get_vehicle_hover(&server);
+    let updated_hover = get_vehicle_hover(&mut server);
     println!("\n=== UPDATED HOVER (import removed) ===");
     println!("{}", updated_hover.as_ref().unwrap_or(&"None".to_string()));
 
@@ -1879,7 +1805,7 @@ fn test_hover_isq_massvalue() {
     use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
 
     // Create server with explicit stdlib path for testing
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib first
@@ -1888,20 +1814,19 @@ fn test_hover_isq_massvalue() {
         .expect("Should load stdlib");
 
     // Debug: Check ISQ symbols
-    let resolver = server.resolver();
-    let isq_package = resolver.resolve_qualified("ISQ");
-    println!("ISQ package found: {:?}", isq_package.map(|s| s.name()));
+    let isq_package = server.find_symbol_qualified("ISQ");
+    println!("ISQ package found: {:?}", isq_package.as_ref().map(|s| &s.name));
 
-    let isqbase_massvalue = resolver.resolve_qualified("ISQBase::MassValue");
+    let isqbase_massvalue = server.find_symbol_qualified("ISQBase::MassValue");
     println!(
         "ISQBase::MassValue found: {:?}",
-        isqbase_massvalue.map(|s| s.qualified_name())
+        isqbase_massvalue.as_ref().map(|s| &s.qualified_name)
     );
 
-    let isq_massvalue = resolver.resolve_qualified("ISQ::MassValue");
+    let isq_massvalue = server.find_symbol_qualified("ISQ::MassValue");
     println!(
         "ISQ::MassValue resolved: {:?}",
-        isq_massvalue.map(|s| s.qualified_name())
+        isq_massvalue.as_ref().map(|s| &s.qualified_name)
     );
 
     // Create a test file with import
@@ -1963,7 +1888,7 @@ fn test_hover_isq_massvalue() {
 #[test]
 fn test_hover_isq_massvalue_extension_stdlib() {
     // Use the stdlib path from syster-base
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
 
     println!("Using stdlib path: {stdlib_path:?}");
     assert!(stdlib_path.exists(), "Extension stdlib path should exist");
@@ -1976,50 +1901,21 @@ fn test_hover_isq_massvalue_extension_stdlib() {
         .expect("Should load stdlib");
 
     // Debug: Check ISQ symbols
-    let resolver = server.resolver();
-    let isq_package = resolver.resolve_qualified("ISQ");
-    println!("ISQ package found: {:?}", isq_package.map(|s| s.name()));
+    let isq_package = server.find_symbol_qualified("ISQ");
+    println!("ISQ package found: {:?}", isq_package.as_ref().map(|s| &s.name));
 
-    let isqbase_massvalue = resolver.resolve_qualified("ISQBase::MassValue");
+    let isqbase_massvalue = server.find_symbol_qualified("ISQBase::MassValue");
     println!(
         "ISQBase::MassValue found: {:?}",
-        isqbase_massvalue.map(|s| s.qualified_name())
+        isqbase_massvalue.as_ref().map(|s| &s.qualified_name)
     );
 
-    let isq_massvalue = resolver.resolve_qualified("ISQ::MassValue");
+    // Use the resolver to resolve MassValue from ISQ scope (handles public import ISQBase::*)
+    let isq_massvalue = server.resolve_name("ISQ", "MassValue");
     println!(
         "ISQ::MassValue resolved: {:?}",
-        isq_massvalue.map(|s| s.qualified_name())
+        isq_massvalue.as_ref().map(|s| &s.qualified_name)
     );
-
-    // Check ISQ's public imports
-    let isq_symbol = resolver.resolve_qualified("ISQ");
-    if let Some(isq) = isq_symbol {
-        let scope_id = isq.scope_id();
-        println!("ISQ scope_id: {scope_id}");
-
-        // Check child scopes for imports
-        if let Some(scope) = server.workspace().symbol_table().scopes().get(scope_id) {
-            println!("ISQ scope has {} children", scope.children.len());
-            for &child_id in &scope.children {
-                let imports = server
-                    .workspace()
-                    .symbol_table()
-                    .get_scope_imports(child_id);
-                let public_imports: Vec<_> = imports.iter().filter(|i| i.is_public).collect();
-                if !public_imports.is_empty() {
-                    println!(
-                        "Child scope {} has {} public imports",
-                        child_id,
-                        public_imports.len()
-                    );
-                    for imp in &public_imports {
-                        println!("  - {} (is_namespace: {})", imp.path, imp.is_namespace);
-                    }
-                }
-            }
-        }
-    }
 
     // Now assert the key thing works
     assert!(
@@ -2032,10 +1928,8 @@ fn test_hover_isq_massvalue_extension_stdlib() {
 /// This file uses `SysML::Usage` which should highlight as Type
 #[test]
 fn test_semantic_tokens_for_requirement_derivation_file() {
-    use syster::semantic::processors::SemanticTokenCollector;
-
     // Create server with explicit stdlib path
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
 
     let mut server = LspServer::with_config(true, Some(stdlib_path.clone()));
     server.set_workspace_folders(vec![]);
@@ -2055,20 +1949,17 @@ fn test_semantic_tokens_for_requirement_derivation_file() {
     println!("Looking for file: {:?}", req_deriv_path);
 
     // Check if the file was loaded
-    let file_exists = server.workspace().get_file(&req_deriv_path).is_some();
+    let file_exists = server.has_file_path(&req_deriv_path);
     assert!(file_exists, "RequirementDerivation.sysml should be loaded");
 
     // Check reference index for `SysML::Usage` references in this file
-    let references_in_file = server
-        .workspace()
-        .reference_index()
-        .get_references_in_file(&req_deriv_path.to_string_lossy());
+    let references_in_file = server.references_in_file(&req_deriv_path.to_string_lossy());
 
     println!("References in RequirementDerivation.sysml:");
     for ref_info in &references_in_file {
         println!(
-            "  - Line {}, Col {}: {:?}",
-            ref_info.span.start.line, ref_info.span.start.column, ref_info.token_type
+            "  - Line {}, Col {}-{}: target={}",
+            ref_info.start_line, ref_info.start_col, ref_info.end_col, ref_info.target
         );
     }
 
@@ -2078,35 +1969,24 @@ fn test_semantic_tokens_for_requirement_derivation_file() {
         "RequirementDerivation.sysml should have references indexed"
     );
 
-    // Collect semantic tokens
-    let tokens = SemanticTokenCollector::collect_from_workspace(
-        server.workspace(),
-        &req_deriv_path.to_string_lossy(),
-    );
+    // Collect semantic tokens via LSP API
+    let uri = async_lsp::lsp_types::Url::from_file_path(&req_deriv_path).expect("should create URI");
+    let tokens_result = server.get_semantic_tokens(&uri);
+    
+    let token_count = tokens_result.as_ref().map(|t| {
+        match t {
+            async_lsp::lsp_types::SemanticTokensResult::Tokens(tokens) => tokens.data.len(),
+            async_lsp::lsp_types::SemanticTokensResult::Partial(_) => 0,
+        }
+    }).unwrap_or(0);
 
-    println!("\nSemantic tokens:");
-    for token in &tokens {
-        println!(
-            "  Line {}, Col {}, Len {}: {:?}",
-            token.line, token.column, token.length, token.token_type
-        );
-    }
+    println!("\nSemantic tokens count: {}", token_count);
 
     // Should have tokens for the metadata defs and their references
     assert!(
-        !tokens.is_empty(),
+        token_count > 0,
         "Should have semantic tokens for RequirementDerivation.sysml"
     );
-
-    // Check for SysML::Usage tokens (should be Type tokens on lines with `: SysML::Usage`)
-    let usage_tokens: Vec<_> = tokens.iter().filter(|t| t.length == 12).collect();
-    println!("\nTokens with length 12 (SysML::Usage):");
-    for token in &usage_tokens {
-        println!(
-            "  Line {}, Col {}: {:?}",
-            token.line, token.column, token.token_type
-        );
-    }
 }
 
 /// Tests that semantic tokens work via the LSP's get_semantic_tokens method
@@ -2116,7 +1996,7 @@ fn test_semantic_tokens_via_lsp_for_stdlib_file() {
     use async_lsp::lsp_types::Url;
 
     // Create server with explicit stdlib path
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
 
     let mut server = LspServer::with_config(true, Some(stdlib_path.clone()));
     server.set_workspace_folders(vec![]);
@@ -2205,7 +2085,7 @@ fn test_hover_on_type_from_wildcard_import() {
     use async_lsp::lsp_types::{Position, Url};
 
     // Create server with stdlib enabled
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
+    let stdlib_path = stdlib_path();
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib first
@@ -2235,8 +2115,7 @@ fn test_hover_on_type_from_wildcard_import() {
         .expect("Should open document");
 
     // Verify stdlib was loaded
-    let resolver = server.resolver();
-    let scalar_string = resolver.resolve_qualified("ScalarValues::String");
+    let scalar_string = server.find_symbol_qualified("ScalarValues::String");
     assert!(
         scalar_string.is_some(),
         "ScalarValues::String should exist in stdlib"
@@ -2313,23 +2192,18 @@ part def Camera {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
-        println!("      specializes: {:?}", sym.specializes());
-        println!("      subsets: {:?}", sym.subsets());
-        println!("      redefines: {:?}", sym.redefines());
-        if let syster::semantic::symbol_table::Symbol::Usage { usage_type, .. } = sym {
-            println!("      usage_type: {:?}", usage_type);
-        }
+    for sym in server.all_symbols() {
+        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
+        println!("      supertypes: {:?}", sym.supertypes);
     }
 
     // Debug: Print all reference index targets
     println!("\n=== All Reference Targets ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> source: {}, chain_ctx: {:?}, scope_id: {:?}", 
-                     ref_info.source_qname, ref_info.chain_context, ref_info.scope_id);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> source_symbol: {:?}", ref_info.source_symbol);
         }
     }
 
@@ -2412,16 +2286,17 @@ fn test_flow_statement_hover_resolves_feature_chains() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Debug: Print all reference index targets
     println!("\n=== All Reference Targets ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> span: {:?}, chain_ctx: {:?}", ref_info.span, ref_info.chain_context);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
         }
     }
 
@@ -2545,16 +2420,17 @@ fn test_connection_usage_endpoint_hover() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Debug: Print all reference index targets
     println!("\n=== All Reference Targets ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> span: {:?}, chain_ctx: {:?}", ref_info.span, ref_info.chain_context);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
         }
     }
 
@@ -2656,16 +2532,17 @@ fn test_connection_patterns_comprehensive_hover() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Debug: Print all reference index targets
     println!("\n=== All Reference Targets ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> span: {:?}", ref_info.span);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
         }
     }
 
@@ -2777,16 +2654,17 @@ fn test_comment_about_hover() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Debug: Print all reference index targets
     println!("\n=== All Reference Targets ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> span: {:?}", ref_info.span);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
         }
     }
 
@@ -2874,16 +2752,17 @@ package CarWithEnvelopingShape {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Debug: Print all reference targets
     println!("\n=== All Reference Targets ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> span: {:?}, scope_id: {:?}", ref_info.span, ref_info.scope_id);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
         }
     }
 
@@ -2954,16 +2833,17 @@ fn test_hover_imported_type_cross_file() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (cross-file) ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Debug: Print all reference targets
     println!("\n=== All Reference Targets (cross-file) ===");
-    for target in server.workspace().reference_index().targets() {
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
         println!("  target: {}", target);
-        for ref_info in server.workspace().reference_index().get_references(target) {
-            println!("    -> span: {:?}, scope_id: {:?}", ref_info.span, ref_info.scope_id);
+        for ref_info in all_refs.iter().filter(|r| r.target == target) {
+            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
         }
     }
 
@@ -3026,8 +2906,8 @@ package VehicleInterface {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (message test) ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Test: Hover on 'sendSensedSpeed' message name
@@ -3109,8 +2989,8 @@ fn test_hover_event_occurrence_usage() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (event test) ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Test: Hover on 'setSpeedReceived' event name
@@ -3174,8 +3054,8 @@ fn test_hover_imported_type_in_message() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (import in message test) ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Test: Hover on 'IgnitionCmd' type reference in message
@@ -3241,8 +3121,8 @@ fn test_hover_type_in_action_body_with_send_accept() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (send/accept test) ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 
     // Test: Hover on 'EngineStatus' in the send action body
@@ -3292,7 +3172,7 @@ fn test_hover_type_in_cross_file_action_sequence() {
     println!("\n=== OPENING FILE 1: SignalTypes.sysml ===");
     let result1 = server.open_document(&types_uri, types_source);
     println!("  open_document result: {:?}", result1);
-    println!("  Files in workspace: {:?}", server.workspace().files().keys().collect::<Vec<_>>());
+    println!("  Files in workspace: {:?}", server.loaded_file_paths().iter().collect::<Vec<_>>());
 
     // File 2: Use the imported types - follows real SysML spec structure
     // Note: send/accept actions must be inside an action body, not directly in part def
@@ -3335,40 +3215,32 @@ fn test_hover_type_in_cross_file_action_sequence() {
     println!("\n=== OPENING FILE 2: VehicleInteraction.sysml ===");
     let result2 = server.open_document(&main_uri, main_source);
     println!("  open_document result: {:?}", result2);
-    println!("  Files in workspace: {:?}", server.workspace().files().keys().collect::<Vec<_>>());
+    println!("  Files in workspace: {:?}", server.loaded_file_paths().iter().collect::<Vec<_>>());
     
     // Try to manually parse the file to see errors
     let manual_parse = syster::syntax::sysml::parser::parse_with_result(main_source, &std::path::PathBuf::from("/VehicleInteraction.sysml"));
     println!("  Manual parse errors: {:?}", manual_parse.errors);
 
-    // Debug: Check what was parsed from file 2
-    println!("\n=== PARSED FILE CONTENTS ===");
-    for (path, file) in server.workspace().files() {
+    // Debug: Check file count
+    println!("\n=== LOADED FILES ===");
+    println!("  File count: {}", server.loaded_file_count());
+    for path in server.loaded_file_paths() {
         println!("  File: {:?}", path);
-        println!("    content: {:?}", file.content());
     }
 
     // Debug: Print all symbols
     println!("\n=== All Symbols (cross-file action sequence test) ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?}) [scope_id: {:?}]", sym.qualified_name(), sym.span(), sym.scope_id());
-    }
-
-    // Debug: Print all scopes and their imports
-    println!("\n=== Scopes and Imports ===");
-    for scope_id in 0..20 {
-        let imports = server.workspace().symbol_table().get_scope_imports(scope_id);
-        if !imports.is_empty() {
-            println!("  Scope {}: {:?}", scope_id, imports);
-        }
+    for sym in server.all_symbols() {
+        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
     }
 
     // Debug: Check reference index for the file
     println!("\n=== Reference Index for VehicleInteraction.sysml ===");
     // Check if IgnitionCmd is indexed as a reference
-    let ignition_refs = server.workspace().reference_index().get_references("IgnitionCmd");
+    let all_refs = server.all_references();
+    let ignition_refs: Vec<_> = all_refs.iter().filter(|r| r.target == "IgnitionCmd").collect();
     println!("  References to 'IgnitionCmd': {:?}", ignition_refs);
-    let qualified_refs = server.workspace().reference_index().get_references("SignalTypes::IgnitionCmd");
+    let qualified_refs: Vec<_> = all_refs.iter().filter(|r| r.target == "SignalTypes::IgnitionCmd").collect();
     println!("  References to 'SignalTypes::IgnitionCmd': {:?}", qualified_refs);
 
     // Test: Hover on 'IgnitionCmd' type in send action body
@@ -3471,8 +3343,8 @@ fn test_hover_vehicle_example() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 }
 
@@ -3528,83 +3400,22 @@ fn test_hover_type_in_vehicle_send_accept() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
     }
 
     // Debug: Print all references in file
     println!("\n=== All References in file /test.sysml ===");
-    let refs_in_file = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    let refs_in_file = server.references_in_file("/test.sysml");
     println!("  Count: {}", refs_in_file.len());
     for r in refs_in_file {
-        println!("  from {} at {:?}", r.source_qname, r.span);
+        println!("  target {} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
     }
 
     // Test 1: Hover on IgnitionCmd in send action body (line 18)
     // `                        in ignitionCmd : IgnitionCmd;`
     let pos1 = Position { line: 18, character: 42 };
     println!("\n=== Test 1: IgnitionCmd at line 18 ===");
-    
-    // Debug: check what path is being used  
-    let path = uri.to_file_path().unwrap();
-    let path_str = path.to_string_lossy().to_string();
-    println!("  File path from URI: {}", path_str);
-    println!("  Position: line={}, character={}", pos1.line, pos1.character);
-    
-    // Debug: Check if reference exists at position
-    let pos_core = syster::core::Position::new(pos1.line as usize, pos1.character as usize);
-    if let Some((target_name, ref_info)) = server.workspace().reference_index().get_full_reference_at_position(&path_str, pos_core) {
-        println!("  Reference found:");
-        println!("    target_name: {}", target_name);
-        println!("    source_qname: {}", ref_info.source_qname);
-        println!("    scope_id: {:?}", ref_info.scope_id);
-        println!("    span: {:?}", ref_info.span);
-        
-        // Try resolving the target
-        let resolver = server.resolver();
-        if let Some(scope_id) = ref_info.scope_id {
-            println!("  Trying scope-aware resolution in scope {}", scope_id);
-            
-            // Debug: dump scopes chain with imports
-            let mut current_scope = scope_id;
-            println!("  Scope chain:");
-            loop {
-                if let Some(scope) = server.workspace().symbol_table().scopes().get(current_scope) {
-                    println!("    Scope {}: symbols={:?}", current_scope, scope.symbols.keys().collect::<Vec<_>>());
-                }
-                let imports = server.workspace().symbol_table().get_scope_imports(current_scope);
-                if !imports.is_empty() {
-                    println!("      Imports: {:?}", imports);
-                }
-                if let Some(parent) = server.workspace().symbol_table().get_scope_parent(current_scope) {
-                    current_scope = parent;
-                } else {
-                    break;
-                }
-            }
-            
-            if let Some(symbol) = resolver.resolve_in_scope(target_name, scope_id) {
-                println!("    Resolved to: {}", symbol.qualified_name());
-            } else {
-                println!("    Failed to resolve in scope {}", scope_id);
-                // Try global resolution
-                if let Some(symbol) = resolver.resolve(target_name) {
-                    println!("    Global resolution found: {}", symbol.qualified_name());
-                } else {
-                    println!("    Global resolution also failed");
-                }
-            }
-        } else {
-            println!("  No scope_id, trying global resolution");
-            if let Some(symbol) = resolver.resolve(target_name) {
-                println!("    Resolved to: {}", symbol.qualified_name());
-            } else {
-                println!("    Failed to resolve");
-            }
-        }
-    } else {
-        println!("  No reference found at position");
-    }
     
     let hover1 = server.get_hover(&uri, pos1);
     println!("Hover: {:?}", hover1);
@@ -3632,18 +3443,13 @@ fn test_hover_torque_alias_with_stdlib() {
     use async_lsp::lsp_types::{Position, Url};
 
     // Create server with stdlib enabled
-    let mut server = LspServer::with_config(false, None);
+    let stdlib_path = stdlib_path();
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-    stdlib_loader
-        .load(server.workspace_mut())
-        .expect("Failed to load stdlib");
     server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate stdlib");
+        .ensure_workspace_loaded()
+        .expect("Failed to load stdlib");
 
     let uri = Url::parse("file:///test.sysml").unwrap();
     // This mimics the real-world case:
@@ -3662,15 +3468,20 @@ fn test_hover_torque_alias_with_stdlib() {
         .open_document(&uri, source)
         .expect("Should parse document");
 
-    // Debug: Check if ISQ::TorqueValue exists in stdlib
-    let resolver = server.resolver();
-    let torque_value = resolver.resolve_qualified("ISQ::TorqueValue");
-    println!("\n=== Debug: ISQ::TorqueValue resolution ===");
-    println!("ISQ::TorqueValue: {:?}", torque_value.map(|s| s.qualified_name()));
+    // Debug: Check if TorqueValue is resolvable from ISQ scope (via public import ISQMechanics::*)
+    let torque_value = {
+        let tv = server.resolve_name("ISQ", "TorqueValue");
+        println!("\n=== Debug: ISQ::TorqueValue resolution ===");
+        println!("TorqueValue from ISQ scope: {:?}", tv.as_ref().map(|s| &s.qualified_name));
+        tv.is_some()
+    };
 
     // Check the alias was created
-    let torque_alias = resolver.resolve_qualified("Automotive::Torque");
-    println!("Automotive::Torque: {:?}", torque_alias.map(|s| s.qualified_name()));
+    let torque_alias = {
+        let ta = server.find_symbol_qualified("Automotive::Torque");
+        println!("Automotive::Torque: {:?}", ta.as_ref().map(|s| &s.qualified_name));
+        ta.is_some()
+    };
 
     // Test hover on Torque type reference (line 4, character ~30)
     // `        in driveshaftTorque : Torque;`
@@ -3682,13 +3493,13 @@ fn test_hover_torque_alias_with_stdlib() {
 
     // First verify stdlib has TorqueValue
     assert!(
-        torque_value.is_some(),
-        "ISQ::TorqueValue should be resolvable from stdlib"
+        torque_value,
+        "ISQ::TorqueValue should be resolvable from stdlib via public import"
     );
 
     // Then verify alias was created
     assert!(
-        torque_alias.is_some(),
+        torque_alias,
         "Automotive::Torque alias should exist"
     );
 
@@ -3704,18 +3515,13 @@ fn test_hover_on_qualified_alias_target() {
     use async_lsp::lsp_types::{Position, Url};
 
     // Create server with stdlib enabled
-    let mut server = LspServer::with_config(false, None);
+    let stdlib_path = stdlib_path();
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-    stdlib_loader
-        .load(server.workspace_mut())
-        .expect("Failed to load stdlib");
     server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate stdlib");
+        .ensure_workspace_loaded()
+        .expect("Failed to load stdlib");
 
     let uri = Url::parse("file:///test.sysml").unwrap();
     // Line numbers (0-indexed):
@@ -3761,18 +3567,13 @@ fn test_hover_on_nested_port_type_reference() {
     use async_lsp::lsp_types::{Position, Url};
 
     // Create server with stdlib enabled
-    let mut server = LspServer::with_config(false, None);
+    let stdlib_path = stdlib_path();
+    let mut server = LspServer::with_config(true, Some(stdlib_path));
 
     // Load stdlib
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-    let stdlib_loader = syster::project::StdLibLoader::with_path(stdlib_path);
-    stdlib_loader
-        .load(server.workspace_mut())
-        .expect("Failed to load stdlib");
     server
-        .workspace_mut()
-        .populate_all()
-        .expect("Failed to populate stdlib");
+        .ensure_workspace_loaded()
+        .expect("Failed to load stdlib");
 
     let uri = Url::parse("file:///test.sysml").unwrap();
     // Reproduce the exact structure:
@@ -3798,17 +3599,17 @@ fn test_hover_on_nested_port_type_reference() {
 
     // Debug: print all symbols
     println!("\n=== All symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        if sym.qualified_name().contains("Automotive") {
-            println!("  {}", sym.qualified_name());
+    for sym in server.all_symbols() {
+        if sym.qualified_name.contains("Automotive") {
+            println!("  {}", sym.qualified_name);
         }
     }
 
     // Debug: print all references in file
     println!("\n=== All references in test file ===");
-    let refs = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    let refs = server.references_in_file("/test.sysml");
     for r in &refs {
-        println!("  {} at {:?}", r.source_qname, r.span);
+        println!("  target {} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
     }
 
     // Test hover on Torque in `out torque : Torque;` (line 9)
@@ -3870,17 +3671,17 @@ fn test_hover_in_state_and_transition() {
 
     // Debug: print all symbols
     println!("\n=== All symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        if sym.qualified_name().contains("VehicleStates") {
-            println!("  {}", sym.qualified_name());
+    for sym in server.all_symbols() {
+        if sym.qualified_name.contains("VehicleStates") {
+            println!("  {}", sym.qualified_name);
         }
     }
 
     // Debug: print all references
     println!("\n=== All references ===");
-    let refs = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    let refs = server.references_in_file("/test.sysml");
     for r in &refs {
-        println!("  {} at {:?}", r.source_qname, r.span);
+        println!("  target {} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
     }
 
     // Test hover on IgnitionCmd in accept clause
@@ -3933,15 +3734,15 @@ fn test_hover_derivation_connection_references() {
 
     // Debug: print all symbols
     println!("\n=== All symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
     }
 
     // Debug: print all references
     println!("\n=== All references ===");
-    let refs = server.workspace().reference_index().get_references_in_file("/test.sysml");
+    let refs = server.references_in_file("/test.sysml");
     for r in &refs {
-        println!("  target={} source={} at {:?}", r.source_qname, r.source_qname, r.span);
+        println!("  target={} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
     }
 
     // Test hover on 'vehicleSpecification' in ::> reference
@@ -4013,19 +3814,17 @@ fn test_hover_attribute_redefines_with_value() {
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
     }
 
     // Debug: Print all references with targets
     println!("\n=== All references ===");
-    let ref_index = server.workspace().reference_index();
-    for target in ref_index.targets() {
-        let refs = ref_index.get_references(target);
-        for r in refs {
-            println!("  line={} col={}-{} target={} source={}", 
-                r.span.start.line, r.span.start.column, r.span.end.column,
-                target, r.source_qname);
+    let all_refs = server.all_references();
+    for target in server.all_reference_targets() {
+        for r in all_refs.iter().filter(|r| r.target == target) {
+            println!("  line={} col={}-{} target={}", 
+                r.start_line, r.start_col, r.end_col, target);
         }
     }
 

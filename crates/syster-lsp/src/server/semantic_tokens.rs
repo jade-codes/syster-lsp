@@ -4,12 +4,12 @@ use async_lsp::lsp_types::{
     SemanticToken as LspSemanticToken, SemanticTokenType, SemanticTokens, SemanticTokensLegend,
     SemanticTokensResult, Url,
 };
-use syster::semantic::processors::{SemanticToken, SemanticTokenCollector};
+use syster::ide::SemanticToken;
 use tracing::debug;
 
 impl LspServer {
     /// Get semantic tokens for a document
-    pub fn get_semantic_tokens(&self, uri: &Url) -> Option<SemanticTokensResult> {
+    pub fn get_semantic_tokens(&mut self, uri: &Url) -> Option<SemanticTokensResult> {
         let path = uri_to_path(uri)?;
         debug!("semantic_tokens: path from URI = {:?}", path);
 
@@ -33,7 +33,10 @@ impl LspServer {
             path_str
         );
 
-        let tokens = SemanticTokenCollector::collect_from_workspace(&self.workspace, &path_str);
+        let analysis = self.analysis_host.analysis();
+        let file_id = analysis.get_file_id(&path_str)?;
+
+        let tokens = analysis.semantic_tokens(file_id);
 
         debug!("semantic_tokens: got {} tokens", tokens.len());
 
@@ -68,8 +71,8 @@ fn encode_tokens_as_deltas(tokens: &[SemanticToken], lines: &[&str]) -> Vec<LspS
 
     for token in tokens {
         let line_text = lines.get(token.line as usize).copied().unwrap_or("");
-        let col_utf16 = char_offset_to_utf16(line_text, token.column as usize);
-        let end_utf16 = char_offset_to_utf16(line_text, (token.column + token.length) as usize);
+        let col_utf16 = char_offset_to_utf16(line_text, token.col as usize);
+        let end_utf16 = char_offset_to_utf16(line_text, (token.col + token.length) as usize);
         let len_utf16 = end_utf16 - col_utf16;
 
         let delta_line = token.line - prev_line;

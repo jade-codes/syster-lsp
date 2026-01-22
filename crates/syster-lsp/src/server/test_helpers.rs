@@ -2,33 +2,16 @@
 //!
 //! These helpers abstract away internal implementation details so tests
 //! don't break when we refactor the underlying architecture.
+//!
+//! This module is public so integration tests can use these helpers.
 
 use std::path::PathBuf;
 use crate::server::LspServer;
-use syster::hir::{HirSymbol, SymbolKind, TypeRef, TypeRefKind};
+use syster::hir::{HirSymbol, SymbolKind, TypeRef, Resolver, ResolveResult};
 
 /// Create an LspServer without stdlib (fast, for most unit tests)
 pub fn create_server() -> LspServer {
     LspServer::with_config(false, None)
-}
-
-/// Create an LspServer with stdlib loaded (slower, for stdlib integration tests)
-pub fn create_server_with_stdlib() -> LspServer {
-    let stdlib_path = std::env::current_exe()
-        .ok()
-        .and_then(|exe| {
-            // Test binary is at target/debug/deps/<binary>
-            // Stdlib is at target/debug/sysml.library
-            exe.parent()
-                .and_then(|deps| deps.parent())
-                .map(|debug| debug.join("sysml.library"))
-        })
-        .unwrap_or_else(|| PathBuf::from("sysml.library"));
-
-    let mut server = LspServer::with_config(true, Some(stdlib_path));
-    // Load stdlib
-    let _ = server.ensure_workspace_loaded();
-    server
 }
 
 /// Extension trait for LspServer test helpers
@@ -105,6 +88,10 @@ pub trait LspServerTestExt {
     
     /// Check if stdlib is loaded (has many files)
     fn has_stdlib_loaded(&self) -> bool;
+    
+    /// Resolve a name from a given scope using visibility maps
+    /// This handles imports properly, unlike find_symbol_qualified which does direct lookup
+    fn resolve_name(&mut self, scope: &str, name: &str) -> Option<SymbolSnapshot>;
 }
 
 /// A snapshot of symbol data for tests (owned, no lifetime issues)
@@ -134,7 +121,10 @@ impl From<&HirSymbol> for SymbolSnapshot {
             end_col: sym.end_col,
             supertypes: sym.supertypes.iter().map(|s| s.to_string()).collect(),
             doc: sym.doc.as_ref().map(|d| d.to_string()),
-            type_refs: sym.type_refs.iter().flat_map(TypeRefSnapshot::from_type_ref_kind).collect(),
+            type_refs: sym.type_refs.iter()
+                .flat_map(|trk| trk.as_refs())
+                .map(TypeRefSnapshot::from)
+                .collect(),
         }
     }
 }
@@ -151,26 +141,6 @@ pub struct TypeRefSnapshot {
     pub source_symbol: Option<String>,
     /// The file containing this reference
     pub file_path: Option<String>,
-}
-
-impl TypeRefSnapshot {
-    /// Convert from TypeRefKind to one or more snapshots (chains become multiple)
-    fn from_type_ref_kind(trk: &TypeRefKind) -> Vec<Self> {
-        match trk {
-            TypeRefKind::Simple(tr) => vec![Self::from(tr)],
-            TypeRefKind::Chain(chain) => {
-                chain.parts.iter().map(|part| Self {
-                    target: part.target.to_string(),
-                    start_line: part.start_line,
-                    start_col: part.start_col,
-                    end_line: part.end_line,
-                    end_col: part.end_col,
-                    source_symbol: None,
-                    file_path: None,
-                }).collect()
-            }
-        }
-    }
 }
 
 impl From<&TypeRef> for TypeRefSnapshot {
@@ -291,8 +261,8 @@ impl LspServerTestExt for LspServer {
         for sym in analysis.symbol_index().all_symbols() {
             let file_path = analysis.get_file_path(sym.file).map(|s| s.to_string());
             for trk in &sym.type_refs {
-                for snapshot in TypeRefSnapshot::from_type_ref_kind(trk) {
-                    let mut snapshot = snapshot;
+                for tr in trk.as_refs() {
+                    let mut snapshot = TypeRefSnapshot::from(tr);
                     snapshot.source_symbol = Some(sym.qualified_name.to_string());
                     snapshot.file_path = file_path.clone();
                     refs.push(snapshot);
@@ -362,5 +332,15 @@ impl LspServerTestExt for LspServer {
     fn has_stdlib_loaded(&self) -> bool {
         // Stdlib has 50+ files, so if we have many files, stdlib is likely loaded
         self.analysis_host.file_count() > 50
+    }
+    
+    fn resolve_name(&mut self, scope: &str, name: &str) -> Option<SymbolSnapshot> {
+        let analysis = self.analysis_host.analysis();
+        let index = analysis.symbol_index();
+        let resolver = Resolver::new(index).with_scope(scope);
+        match resolver.resolve(name) {
+            ResolveResult::Found(sym) => Some(SymbolSnapshot::from(&sym)),
+            _ => None,
+        }
     }
 }

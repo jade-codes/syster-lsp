@@ -85,17 +85,36 @@ impl LspServer {
         self.parse_errors.insert(path.clone(), parse_result.errors);
 
         if let Some(file) = parse_result.content {
-            // Use update if file exists, otherwise add
-            let file_exists = self.workspace.get_file(path).is_some();
-            if file_exists {
-                self.workspace.update_file(path, file);
-            } else {
-                self.workspace.add_file(path.clone(), file);
-            }
-            let _ = self.workspace.populate_affected();
+            // Use set_file which handles update vs add
+            self.analysis_host.set_file(path.clone(), file);
+            // Index is automatically marked dirty by AnalysisHost
         } else {
-            // Parse failed - remove stale file from workspace
-            self.workspace.remove_file(path);
+            // Parse failed completely - still add an empty file so the file_id exists
+            // This allows completions/hover to work even with invalid syntax
+            let empty_file = Self::create_empty_syntax_file(path);
+            self.analysis_host.set_file(path.clone(), empty_file);
+        }
+    }
+
+    /// Create an empty SyntaxFile based on file extension
+    fn create_empty_syntax_file(path: &PathBuf) -> syster::syntax::SyntaxFile {
+        use syster::syntax::SyntaxFile;
+        use syster::syntax::sysml::ast::SysMLFile;
+        use syster::syntax::kerml::KerMLFile;
+
+        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("sysml");
+        
+        if ext == "kerml" {
+            SyntaxFile::KerML(KerMLFile {
+                namespace: None,
+                elements: Vec::new(),
+            })
+        } else {
+            SyntaxFile::SysML(SysMLFile {
+                namespace: None,
+                namespaces: Vec::new(),
+                elements: Vec::new(),
+            })
         }
     }
 

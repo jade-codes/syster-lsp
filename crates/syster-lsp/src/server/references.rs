@@ -1,31 +1,54 @@
 use super::LspServer;
-use super::helpers::{collect_reference_locations, uri_to_path};
-use async_lsp::lsp_types::{Location, Position, Url};
+use super::helpers::uri_to_path;
+use async_lsp::lsp_types::{Location, Position, Range, Url};
 
 impl LspServer {
     /// Find all references to a symbol at the given position
     ///
-    /// Queries the ReferenceIndex directly for references instead of
-    /// pre-computing them on every document change. This provides O(1) lookup
-    /// instead of O(n) on every keystroke.
-    /// Optionally includes the symbol's declaration location.
+    /// Uses the new HIR-based IDE layer for find-references.
     pub fn get_references(
-        &self,
+        &mut self,
         uri: &Url,
         position: Position,
         include_declaration: bool,
     ) -> Option<Vec<Location>> {
         let path = uri_to_path(uri)?;
+        let path_str = path.to_string_lossy();
+        
+        let analysis = self.analysis_host.analysis();
 
-        // Find the symbol at this position using AST
-        let (element_qname, _) = self.find_symbol_at_position(&path, position)?;
+        // Get file ID for the new HIR layer
+        let file_id = analysis.get_file_id(&path_str)?;
 
-        // Collect all references using shared helper
-        let mut locations = collect_reference_locations(&self.workspace, &element_qname);
+        // Use the Analysis find_references method
+        let result = analysis.find_references(
+            file_id,
+            position.line,
+            position.character,
+            include_declaration,
+        );
 
-        if include_declaration && let Some(def) = self.get_definition(uri, position) {
-            locations.push(def);
-        }
+        // Convert to LSP Locations
+        let locations: Vec<Location> = result.references
+            .into_iter()
+            .filter_map(|reference| {
+                let ref_path = analysis.get_file_path(reference.file)?;
+                let ref_uri = Url::from_file_path(ref_path).ok()?;
+                Some(Location {
+                    uri: ref_uri,
+                    range: Range {
+                        start: Position {
+                            line: reference.start_line,
+                            character: reference.start_col,
+                        },
+                        end: Position {
+                            line: reference.end_line,
+                            character: reference.end_col,
+                        },
+                    },
+                })
+            })
+            .collect();
 
         Some(locations)
     }

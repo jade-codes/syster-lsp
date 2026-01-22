@@ -7,3 +7,4 @@ pub mod server;
 
 pub use server::LspServer;
 pub use server::formatting;
+pub use server::test_helpers;

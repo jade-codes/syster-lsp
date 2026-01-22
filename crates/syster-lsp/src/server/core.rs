@@ -5,14 +5,14 @@ use syster::core::ParseError;
 use syster::core::constants::{
     COMPLETION_TRIGGERS, LSP_SERVER_NAME, LSP_SERVER_VERSION, OPT_STDLIB_ENABLED, OPT_STDLIB_PATH,
 };
+use syster::ide::AnalysisHost;
 use syster::project::{StdLibLoader, WorkspaceLoader};
-use syster::semantic::{Workspace, resolver::Resolver};
-use syster::syntax::SyntaxFile;
 use tokio_util::sync::CancellationToken;
 
 /// LspServer manages the workspace state for the LSP server
 pub struct LspServer {
-    pub(super) workspace: Workspace<SyntaxFile>,
+    /// Unified analysis host - holds workspace, symbol index, and file maps
+    pub(super) analysis_host: AnalysisHost,
     /// Track parse errors for each file (keyed by file path)
     pub(super) parse_errors: HashMap<PathBuf, Vec<ParseError>>,
     /// Track document text for hover and other features (keyed by file path)
@@ -128,12 +128,6 @@ impl LspServer {
 
     /// Create a new LspServer with custom configuration
     pub fn with_config(stdlib_enabled: bool, custom_stdlib_path: Option<PathBuf>) -> Self {
-        let mut workspace = Workspace::<SyntaxFile>::new();
-
-        // Enable auto-invalidation so that file updates trigger re-population
-        // This clears old symbols/relationships when a file is edited
-        workspace.enable_auto_invalidation();
-
         // Use custom path or let StdLibLoader discover it automatically
         let stdlib_loader = match custom_stdlib_path {
             Some(path) => StdLibLoader::with_path(path),
@@ -141,7 +135,7 @@ impl LspServer {
         };
 
         Self {
-            workspace,
+            analysis_host: AnalysisHost::new(),
             parse_errors: HashMap::new(),
             document_texts: HashMap::new(),
             stdlib_loader,
@@ -169,14 +163,14 @@ impl LspServer {
 
         // Load stdlib if enabled
         if self.stdlib_enabled {
-            self.stdlib_loader.ensure_loaded(&mut self.workspace)?;
+            self.stdlib_loader.ensure_loaded_into_host(&mut self.analysis_host)?;
         }
 
         // Load all SysML/KerML files from workspace folders
         // Parse errors are collected but don't block loading of valid files
         let loader = WorkspaceLoader::new();
         for folder in self.workspace_folders.clone() {
-            if let Err(err) = loader.load_directory(&folder, &mut self.workspace) {
+            if let Err(err) = loader.load_directory_into_host(&folder, &mut self.analysis_host) {
                 // Log parse errors but continue - valid files are already loaded
                 tracing::warn!(
                     "Some files in '{}' failed to parse:\n{err}",
@@ -185,13 +179,11 @@ impl LspServer {
             }
         }
 
-        // Populate all symbols
-        if let Err(err) = self.workspace.populate_all() {
-            return Err(format!("Failed to populate workspace symbols: {err}"));
-        }
+        // Sync document texts for hover/features on loaded files
+        self.sync_document_texts_from_files();
 
-        // Sync document texts for hover/features on stdlib files
-        self.sync_document_texts_from_workspace();
+        // Mark dirty so index is rebuilt on next analysis() call
+        self.analysis_host.mark_dirty();
 
         self.workspace_initialized = true;
         Ok(())
@@ -216,28 +208,10 @@ impl LspServer {
         self.document_cancel_tokens.get(path).cloned()
     }
 
-    pub fn workspace(&self) -> &Workspace<SyntaxFile> {
-        &self.workspace
-    }
-
-    #[allow(dead_code)] // Used in integration tests
-    pub fn workspace_mut(&mut self) -> &mut Workspace<SyntaxFile> {
-        &mut self.workspace
-    }
-
-    pub fn resolver(&self) -> Resolver<'_> {
-        Resolver::new(self.workspace.symbol_table())
-    }
-
-    #[allow(dead_code)]
-    pub fn document_texts_mut(&mut self) -> &mut HashMap<PathBuf, String> {
-        &mut self.document_texts
-    }
-
-    /// Sync document_texts with all files currently in the workspace
-    /// This ensures hover and other features work on all workspace files without disk reads
-    pub fn sync_document_texts_from_workspace(&mut self) {
-        for path in self.workspace.files().keys() {
+    /// Sync document_texts with all files currently loaded
+    /// This ensures hover and other features work on all files without disk reads
+    fn sync_document_texts_from_files(&mut self) {
+        for path in self.analysis_host.files().keys() {
             // Only load if not already tracked (avoid overwriting editor versions)
             if !self.document_texts.contains_key(path)
                 && let Ok(text) = std::fs::read_to_string(path)
@@ -245,5 +219,17 @@ impl LspServer {
                 self.document_texts.insert(path.clone(), text);
             }
         }
+    }
+
+    // ==================== Accessors ====================
+
+    /// Get the number of files loaded
+    pub fn file_count(&self) -> usize {
+        self.analysis_host.file_count()
+    }
+
+    /// Get mutable access to document_texts
+    pub fn document_texts_mut(&mut self) -> &mut HashMap<PathBuf, String> {
+        &mut self.document_texts
     }
 }

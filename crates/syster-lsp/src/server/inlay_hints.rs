@@ -5,54 +5,47 @@ use super::helpers::uri_to_path;
 use async_lsp::lsp_types::{
     InlayHint, InlayHintKind, InlayHintLabel, InlayHintParams, Position as LspPosition,
 };
-use syster::core::Position as BasePosition;
-use syster::semantic::{InlayHintKind as BaseInlayHintKind, extract_inlay_hints};
+use syster::ide;
 
 impl LspServer {
     /// Get inlay hints for a document
-    pub fn get_inlay_hints(&self, params: &InlayHintParams) -> Vec<InlayHint> {
+    pub fn get_inlay_hints(&mut self, params: &InlayHintParams) -> Vec<InlayHint> {
         let uri = &params.text_document.uri;
 
         let Some(path) = uri_to_path(uri) else {
             return vec![];
         };
 
-        let workspace_file = match self.workspace.files().get(&path) {
-            Some(f) => f,
-            None => return vec![],
+        let path_str = path.to_string_lossy();
+        let analysis = self.analysis_host.analysis();
+        
+        let Some(file_id) = analysis.get_file_id(&path_str) else {
+            return vec![];
         };
 
-        // Convert LSP range to base positions
+        // Convert LSP range to tuple of (start_line, start_col, end_line, end_col)
         let range = Some((
-            BasePosition {
-                line: params.range.start.line as usize,
-                column: params.range.start.character as usize,
-            },
-            BasePosition {
-                line: params.range.end.line as usize,
-                column: params.range.end.character as usize,
-            },
+            params.range.start.line,
+            params.range.start.character,
+            params.range.end.line,
+            params.range.end.character,
         ));
 
-        // Extract hints using the semantic layer
-        let base_hints = extract_inlay_hints(
-            workspace_file.content(),
-            self.workspace.symbol_table(),
-            range,
-        );
+        // Extract hints using the Analysis inlay_hints method
+        let hints = analysis.inlay_hints(file_id, range);
 
-        // Convert base hints to LSP hints
-        base_hints
+        // Convert IDE hints to LSP hints
+        hints
             .into_iter()
             .map(|hint| InlayHint {
                 position: LspPosition {
-                    line: hint.position.line as u32,
-                    character: hint.position.column as u32,
+                    line: hint.line,
+                    character: hint.col,
                 },
                 label: InlayHintLabel::String(hint.label),
                 kind: Some(match hint.kind {
-                    BaseInlayHintKind::Type => InlayHintKind::TYPE,
-                    BaseInlayHintKind::Parameter => InlayHintKind::PARAMETER,
+                    ide::InlayHintKind::Type => InlayHintKind::TYPE,
+                    ide::InlayHintKind::Parameter => InlayHintKind::PARAMETER,
                 }),
                 text_edits: None,
                 tooltip: None,

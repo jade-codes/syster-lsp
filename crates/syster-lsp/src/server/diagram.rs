@@ -11,7 +11,7 @@ use super::LspServer;
 use async_lsp::lsp_types::request::Request;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use syster::semantic::symbol_table::Symbol;
+use syster::hir::{HirSymbol, SymbolKind};
 
 /// Custom LSP request: syster/getDiagram
 pub enum GetDiagramRequest {}
@@ -97,21 +97,22 @@ pub struct DiagramData {
 impl LspServer {
     /// Get diagram data for the workspace or a specific file.
     /// Returns raw symbol data - presentation logic belongs in the frontend.
-    pub fn get_diagram(&self, file_path: Option<&Path>, view_type: &str) -> DiagramData {
+    pub fn get_diagram(&mut self, file_path: Option<&Path>, view_type: &str) -> DiagramData {
         let mut symbols = Vec::new();
         let mut relationships = Vec::new();
 
+        let analysis = self.analysis_host.analysis();
+        
         // Collect symbols based on file path or whole workspace
-        let symbol_iter: Box<dyn Iterator<Item = &Symbol>> = if let Some(path) = file_path {
-            let path_str = path.to_str().unwrap_or("");
-            Box::new(
-                self.workspace
-                    .symbol_table()
-                    .get_symbols_for_file(path_str)
-                    .into_iter(),
-            )
+        let symbol_iter: Box<dyn Iterator<Item = &HirSymbol>> = if let Some(path) = file_path {
+            let path_str = path.to_string_lossy();
+            if let Some(file_id) = analysis.get_file_id(&path_str) {
+                Box::new(analysis.symbol_index().symbols_in_file(file_id).into_iter())
+            } else {
+                Box::new(std::iter::empty())
+            }
         } else {
-            Box::new(self.workspace.symbol_table().iter_symbols())
+            Box::new(analysis.symbol_index().all_symbols())
         };
 
         // Convert all symbols - frontend decides how to display them
@@ -137,88 +138,68 @@ impl LspServer {
     }
 }
 
-/// Convert a Symbol to DiagramSymbol
-fn convert_symbol_to_diagram(symbol: &Symbol) -> Option<DiagramSymbol> {
-    match symbol {
-        Symbol::Definition {
-            name,
-            qualified_name,
-            kind,
-            ..
-        } => Some(DiagramSymbol {
-            name: name.clone(),
-            qualified_name: qualified_name.clone(),
-            // Format: "{Kind}Def" - e.g., "Part" -> "PartDef"
-            node_type: format!("{}Def", kind),
-            parent: extract_parent(qualified_name),
-            features: None,
-            typed_by: None,
-            direction: None,
-        }),
-        Symbol::Usage {
-            name,
-            qualified_name,
-            kind,
-            usage_type,
-            ..
-        } => Some(DiagramSymbol {
-            name: name.clone(),
-            qualified_name: qualified_name.clone(),
-            // Format: "{Kind}Usage" - e.g., "Item" -> "ItemUsage"
-            node_type: format!("{}Usage", kind),
-            parent: extract_parent(qualified_name),
-            features: None,
-            typed_by: usage_type.clone(),
-            direction: None,
-        }),
-        Symbol::Package {
-            name,
-            qualified_name,
-            ..
-        } => Some(DiagramSymbol {
-            name: name.clone(),
-            qualified_name: qualified_name.clone(),
-            // Packages don't have a node type in diagram-ui yet
-            // TODO: Add PackageDef to NODE_TYPES if we want to render packages
-            node_type: "Package".to_string(),
-            parent: extract_parent(qualified_name),
-            features: None,
-            typed_by: None,
-            direction: None,
-        }),
-        Symbol::Feature {
-            name,
-            qualified_name,
-            feature_type,
-            ..
-        } => Some(DiagramSymbol {
-            name: name.clone(),
-            qualified_name: qualified_name.clone(),
-            // Features are typically rendered as part of their parent
-            node_type: "Feature".to_string(),
-            parent: extract_parent(qualified_name),
-            features: None,
-            typed_by: feature_type.clone(),
-            direction: None,
-        }),
-        Symbol::Classifier {
-            name,
-            qualified_name,
-            kind,
-            ..
-        } => Some(DiagramSymbol {
-            name: name.clone(),
-            qualified_name: qualified_name.clone(),
-            // KerML classifiers - try to map to closest SysML equivalent
-            node_type: format!("{}Def", kind),
-            parent: extract_parent(qualified_name),
-            features: None,
-            typed_by: None,
-            direction: None,
-        }),
-        // Skip Alias, Import, and Comment - not useful for diagrams
-        Symbol::Alias { .. } | Symbol::Import { .. } | Symbol::Comment { .. } => None,
-    }
+/// Convert a HirSymbol to DiagramSymbol
+fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
+    let name = symbol.name.to_string();
+    let qualified_name = symbol.qualified_name.to_string();
+    let parent = extract_parent(&qualified_name);
+    let typed_by = symbol.supertypes.first().map(|s| s.to_string());
+    
+    let node_type = match symbol.kind {
+        // Definitions
+        SymbolKind::PartDef => "PartDef",
+        SymbolKind::ItemDef => "ItemDef",
+        SymbolKind::ActionDef => "ActionDef",
+        SymbolKind::PortDef => "PortDef",
+        SymbolKind::AttributeDef => "AttributeDef",
+        SymbolKind::ConnectionDef => "ConnectionDef",
+        SymbolKind::InterfaceDef => "InterfaceDef",
+        SymbolKind::AllocationDef => "AllocationDef",
+        SymbolKind::RequirementDef => "RequirementDef",
+        SymbolKind::ConstraintDef => "ConstraintDef",
+        SymbolKind::StateDef => "StateDef",
+        SymbolKind::CalculationDef => "CalculationDef",
+        SymbolKind::UseCaseDef => "UseCaseDef",
+        SymbolKind::AnalysisCaseDef => "AnalysisCaseDef",
+        SymbolKind::ConcernDef => "ConcernDef",
+        SymbolKind::ViewDef => "ViewDef",
+        SymbolKind::ViewpointDef => "ViewpointDef",
+        SymbolKind::RenderingDef => "RenderingDef",
+        SymbolKind::EnumerationDef => "EnumerationDef",
+        
+        // Usages
+        SymbolKind::PartUsage => "PartUsage",
+        SymbolKind::ItemUsage => "ItemUsage",
+        SymbolKind::ActionUsage => "ActionUsage",
+        SymbolKind::PortUsage => "PortUsage",
+        SymbolKind::AttributeUsage => "AttributeUsage",
+        SymbolKind::ConnectionUsage => "ConnectionUsage",
+        SymbolKind::InterfaceUsage => "InterfaceUsage",
+        SymbolKind::AllocationUsage => "AllocationUsage",
+        SymbolKind::RequirementUsage => "RequirementUsage",
+        SymbolKind::ConstraintUsage => "ConstraintUsage",
+        SymbolKind::StateUsage => "StateUsage",
+        SymbolKind::CalculationUsage => "CalculationUsage",
+        SymbolKind::ReferenceUsage => "ReferenceUsage",
+        SymbolKind::OccurrenceUsage => "OccurrenceUsage",
+        SymbolKind::FlowUsage => "FlowUsage",
+        
+        // Other
+        SymbolKind::Package => "Package",
+        SymbolKind::Alias | SymbolKind::Import | SymbolKind::Comment | SymbolKind::Dependency | SymbolKind::Other => {
+            return None;
+        }
+    };
+    
+    Some(DiagramSymbol {
+        name,
+        qualified_name,
+        node_type: node_type.to_string(),
+        parent,
+        features: None,
+        typed_by,
+        direction: None,
+    })
 }
 
 /// Extract parent qualified name from a fully qualified name.
@@ -343,18 +324,22 @@ mod tests {
     /// Test convert_symbol_to_diagram for Definition symbols
     #[test]
     fn test_convert_definition_symbol() {
-        use syster::core::Span;
-
-        let symbol = Symbol::Definition {
-            name: "Vehicle".to_string(),
-            qualified_name: "Pkg::Vehicle".to_string(),
-            kind: "Part".to_string(),
-            semantic_role: None,
-            scope_id: 0,
-            source_file: Some("test.sysml".to_string()),
-            span: Some(Span::from_coords(0, 0, 0, 10)),
-            documentation: None,
-            specializes: Vec::new(),
+        use syster::base::FileId;
+        
+        let symbol = HirSymbol {
+            name: "Vehicle".into(),
+            short_name: None,
+            qualified_name: "Pkg::Vehicle".into(),
+            kind: SymbolKind::PartDef,
+            file: FileId::new(0),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            supertypes: Vec::new(),
+            doc: None,
+            type_refs: Vec::new(),
+            is_public: false,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -369,22 +354,22 @@ mod tests {
     /// Test convert_symbol_to_diagram for Usage symbols
     #[test]
     fn test_convert_usage_symbol() {
-        use syster::core::Span;
+        use syster::base::FileId;
 
-        let symbol = Symbol::Usage {
-            name: "engine".to_string(),
-            qualified_name: "Pkg::Vehicle::engine".to_string(),
-            kind: "Part".to_string(),
-            semantic_role: None,
-            usage_type: Some("Engine".to_string()),
-            scope_id: 0,
-            source_file: Some("test.sysml".to_string()),
-            span: Some(Span::from_coords(0, 0, 0, 10)),
-            documentation: None,
-            redefines: Vec::new(),
-            performs: Vec::new(),
-            references: Vec::new(),
-            subsets: Vec::new(),
+        let symbol = HirSymbol {
+            name: "engine".into(),
+            short_name: None,
+            qualified_name: "Pkg::Vehicle::engine".into(),
+            kind: SymbolKind::PartUsage,
+            file: FileId::new(0),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            supertypes: vec!["Engine".into()],
+            doc: None,
+            type_refs: Vec::new(),
+            is_public: false,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -399,15 +384,22 @@ mod tests {
     /// Test convert_symbol_to_diagram for Package symbols
     #[test]
     fn test_convert_package_symbol() {
-        use syster::core::Span;
+        use syster::base::FileId;
 
-        let symbol = Symbol::Package {
-            name: "MyPackage".to_string(),
-            qualified_name: "Root::MyPackage".to_string(),
-            scope_id: 0,
-            source_file: Some("test.sysml".to_string()),
-            span: Some(Span::from_coords(0, 0, 0, 10)),
-            documentation: None,
+        let symbol = HirSymbol {
+            name: "MyPackage".into(),
+            short_name: None,
+            qualified_name: "Root::MyPackage".into(),
+            kind: SymbolKind::Package,
+            file: FileId::new(0),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            supertypes: Vec::new(),
+            doc: None,
+            type_refs: Vec::new(),
+            is_public: false,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -421,16 +413,22 @@ mod tests {
     /// Test that Alias symbols are skipped (return None)
     #[test]
     fn test_convert_alias_symbol_returns_none() {
-        use syster::core::Span;
+        use syster::base::FileId;
 
-        let symbol = Symbol::Alias {
-            name: "MyAlias".to_string(),
-            qualified_name: "Pkg::MyAlias".to_string(),
-            target: "Target".to_string(),
-            target_span: None,
-            scope_id: 0,
-            source_file: Some("test.sysml".to_string()),
-            span: Some(Span::from_coords(0, 0, 0, 10)),
+        let symbol = HirSymbol {
+            name: "MyAlias".into(),
+            short_name: None,
+            qualified_name: "Pkg::MyAlias".into(),
+            kind: SymbolKind::Alias,
+            file: FileId::new(0),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            supertypes: Vec::new(),
+            doc: None,
+            type_refs: Vec::new(),
+            is_public: false,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
@@ -439,16 +437,22 @@ mod tests {
     /// Test that Import symbols are skipped (return None)
     #[test]
     fn test_convert_import_symbol_returns_none() {
-        use syster::core::Span;
+        use syster::base::FileId;
 
-        let symbol = Symbol::Import {
-            path: "Other::Thing".to_string(),
-            path_span: None,
-            qualified_name: "Pkg::_import_Other::Thing".to_string(),
-            is_recursive: false,
-            scope_id: 0,
-            source_file: Some("test.sysml".to_string()),
-            span: Some(Span::from_coords(0, 0, 0, 10)),
+        let symbol = HirSymbol {
+            name: "_import".into(),
+            short_name: None,
+            qualified_name: "Pkg::_import_Other::Thing".into(),
+            kind: SymbolKind::Import,
+            file: FileId::new(0),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            supertypes: Vec::new(),
+            doc: None,
+            type_refs: Vec::new(),
+            is_public: false,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());

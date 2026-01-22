@@ -98,7 +98,8 @@ part def Car specializes Vehicle {
 
     let lenses = server.get_code_lenses(&uri);
 
-    // Should have code lenses for Vehicle (1 specialization) and speed (1 redefinition)
+    // Should have code lenses for Vehicle and Car
+    // Vehicle has 2 references: from specializes + from redefines Vehicle::speed
     let lens_titles: Vec<&str> = lenses
         .iter()
         .filter_map(|l| l.command.as_ref())
@@ -106,14 +107,15 @@ part def Car specializes Vehicle {
         .collect();
 
     assert!(
-        lens_titles.contains(&"1 reference"),
-        "Vehicle should have 1 reference"
+        lens_titles.contains(&"2 references"),
+        "Vehicle should have 2 references, got {:?}",
+        lens_titles
     );
 }
 
 #[test]
 fn test_code_lens_invalid_uri() {
-    let server = create_server();
+    let mut server = create_server();
     let uri = Url::parse("http://example.com/not-a-file").unwrap();
 
     let lenses = server.get_code_lenses(&uri);

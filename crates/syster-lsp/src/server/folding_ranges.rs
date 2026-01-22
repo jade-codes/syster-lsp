@@ -1,30 +1,37 @@
 //! Folding range support for the LSP server
 
 use super::LspServer;
-use super::helpers::span_to_folding_range;
 use async_lsp::lsp_types::{FoldingRange, FoldingRangeKind};
 use std::path::Path;
-use syster::semantic::{FoldingRangeInfo, extract_folding_ranges};
 
 impl LspServer {
-    /// Get all foldable regions in a document using the parsed AST
-    pub fn get_folding_ranges(&self, file_path: &Path) -> Vec<FoldingRange> {
-        let Some(workspace_file) = self.workspace.files().get(file_path) else {
+    /// Get all foldable regions in a document using the new IDE layer
+    pub fn get_folding_ranges(&mut self, file_path: &Path) -> Vec<FoldingRange> {
+        let path_str = file_path.to_string_lossy();
+        let analysis = self.analysis_host.analysis();
+        
+        let Some(file_id) = analysis.get_file_id(&path_str) else {
             return Vec::new();
         };
 
-        let to_lsp_range = |info: FoldingRangeInfo| {
-            let kind = if info.is_comment {
-                FoldingRangeKind::Comment
-            } else {
-                FoldingRangeKind::Region
-            };
-            span_to_folding_range(&info.span, kind)
-        };
+        // Use the Analysis folding_ranges method
+        let ide_ranges = analysis.folding_ranges(file_id);
 
-        let mut ranges: Vec<FoldingRange> = extract_folding_ranges(workspace_file.content())
+        // Convert to LSP FoldingRange
+        let mut ranges: Vec<FoldingRange> = ide_ranges
             .into_iter()
-            .map(to_lsp_range)
+            .map(|r| FoldingRange {
+                start_line: r.start_line,
+                start_character: Some(r.start_col),
+                end_line: r.end_line,
+                end_character: Some(r.end_col),
+                kind: Some(if r.is_comment {
+                    FoldingRangeKind::Comment
+                } else {
+                    FoldingRangeKind::Region
+                }),
+                collapsed_text: None,
+            })
             .collect();
 
         ranges.sort_by_key(|r| r.start_line);

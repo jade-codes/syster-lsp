@@ -1,49 +1,46 @@
 use super::LspServer;
-use super::helpers::{span_to_lsp_range, uri_to_path};
+use super::helpers::uri_to_path;
 use async_lsp::lsp_types::{Location, Position, Range, Url};
 
 impl LspServer {
     /// Get the definition location for a symbol at the given position
     ///
-    /// This method:
-    /// 1. Finds the symbol at the cursor position using AST spans
-    /// 2. Looks up the symbol in the symbol table
-    /// 3. Returns the location where the symbol is defined
-    ///
-    /// If the cursor is on a type reference, this returns the definition of that type.
-    /// If the cursor is on a definition itself, this returns the location of that definition.
-    pub fn get_definition(&self, uri: &Url, position: Position) -> Option<Location> {
+    /// Uses the new HIR-based IDE layer for go-to-definition.
+    pub fn get_definition(&mut self, uri: &Url, position: Position) -> Option<Location> {
         let path = uri_to_path(uri)?;
-        let (element_name, _hover_range) = self.find_symbol_at_position(&path, position)?;
+        let path_str = path.to_string_lossy();
+        
+        let analysis = self.analysis_host.analysis();
+        
+        // Get file ID for the new HIR layer
+        let file_id = analysis.get_file_id(&path_str)?;
+        
+        // Use the Analysis goto_definition method
+        let result = analysis.goto_definition(
+            file_id,
+            position.line,
+            position.character,
+        );
 
-        // Look up symbol using resolver
-        let resolver = self.resolver();
-        let symbol = resolver.resolve(&element_name)?;
-
-        // Get definition location from symbol
-        let source_file = symbol.source_file()?;
-
-        // Convert file path to URI
-        let def_uri = Url::from_file_path(source_file).ok()?;
-
-        // Use symbol's span if available, otherwise default to start of file
-        let range = symbol
-            .span()
-            .map(|s| span_to_lsp_range(&s))
-            .unwrap_or(Range {
-                start: Position {
-                    line: 0,
-                    character: 0,
-                },
-                end: Position {
-                    line: 0,
-                    character: 0,
-                },
-            });
+        // Get the first target (if any)
+        let target = result.targets.into_iter().next()?;
+        
+        // Convert FileId back to path
+        let def_path = analysis.get_file_path(target.file)?;
+        let def_uri = Url::from_file_path(def_path).ok()?;
 
         Some(Location {
             uri: def_uri,
-            range,
+            range: Range {
+                start: Position {
+                    line: target.start_line,
+                    character: target.start_col,
+                },
+                end: Position {
+                    line: target.end_line,
+                    character: target.end_col,
+                },
+            },
         })
     }
 }

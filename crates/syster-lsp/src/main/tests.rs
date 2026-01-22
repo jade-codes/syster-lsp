@@ -174,7 +174,7 @@ fn test_did_open_valid_document() {
     assert!(matches!(result, ControlFlow::Continue(())));
 
     // Verify document was added to workspace
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 }
 
 #[test]
@@ -194,8 +194,8 @@ fn test_did_open_invalid_document() {
     let result = state.did_open(params);
     assert!(matches!(result, ControlFlow::Continue(())));
 
-    // Document should NOT be in workspace (parse failed)
-    assert_eq!(state.server.workspace().file_count(), 0);
+    // Document should be in workspace with empty AST (so file_id exists for completions)
+    assert_eq!(state.server.file_count(), 1);
 }
 
 #[test]
@@ -364,7 +364,7 @@ fn test_did_close() {
         },
     };
     let _ = state.did_open(open_params);
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 
     // Now close it
     let close_params = DidCloseTextDocumentParams {
@@ -840,7 +840,7 @@ fn test_server_state_has_valid_server() {
     let (state, _parse_rx) = create_test_server_state();
 
     // Verify the server is initialized
-    assert_eq!(state.server.workspace().file_count(), 0);
+    assert_eq!(state.server.file_count(), 0);
 }
 
 #[test]
@@ -946,7 +946,7 @@ fn test_multiple_documents_lifecycle() {
         },
     });
 
-    assert_eq!(state.server.workspace().file_count(), 2);
+    assert_eq!(state.server.file_count(), 2);
 
     // Close one document - this doesn't remove from workspace to keep cross-file references working
     let result = state.did_close(DidCloseTextDocumentParams {
@@ -955,7 +955,7 @@ fn test_multiple_documents_lifecycle() {
 
     assert!(matches!(result, ControlFlow::Continue(())));
     // Files remain in workspace even after close for cross-file references
-    assert_eq!(state.server.workspace().file_count(), 2);
+    assert_eq!(state.server.file_count(), 2);
 }
 
 #[tokio::test]
@@ -1006,7 +1006,7 @@ async fn test_initialize_updates_server_config() {
     let (mut state, _parse_rx) = create_test_server_state();
 
     // Verify initial state
-    assert_eq!(state.server.workspace().file_count(), 0);
+    assert_eq!(state.server.file_count(), 0);
 
     // Initialize with stdlib disabled
     let mut opts = serde_json::Map::new();
@@ -1027,7 +1027,7 @@ async fn test_initialize_updates_server_config() {
         .server
         .open_document(&uri, "part def Vehicle;")
         .unwrap();
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 }
 
 // ========================================
@@ -1125,7 +1125,7 @@ fn test_did_open_multiple_files_same_name_different_paths() {
     let _ = state.did_open(params1);
     let _ = state.did_open(params2);
 
-    assert_eq!(state.server.workspace().file_count(), 2);
+    assert_eq!(state.server.file_count(), 2);
 }
 
 #[test]
@@ -1668,14 +1668,14 @@ async fn test_initialize_replaces_server_instance() {
         .server
         .open_document(&uri, "part def Vehicle;")
         .unwrap();
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 
     // Initialize - this replaces the server instance
     let params = InitializeParams::default();
     let _ = state.initialize(params).await;
 
     // After initialization, the server is replaced with a new instance
-    assert_eq!(state.server.workspace().file_count(), 0);
+    assert_eq!(state.server.file_count(), 0);
 }
 
 // =============================================================================

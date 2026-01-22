@@ -7,7 +7,7 @@
 
 use crate::server::LspServer;
 use crate::server::formatting::*;
-use crate::server::tests::test_helpers::create_server;
+use crate::server::tests::test_helpers::{create_server, LspServerTestExt};
 use async_lsp::lsp_types::*;
 
 /// Helper struct to create a ServerState for testing
@@ -118,7 +118,7 @@ package Outer {
 
 #[tokio::test]
 async fn test_document_symbol_nonexistent_file() {
-    let state = TestServerState::new();
+    let mut state = TestServerState::new();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let path = std::path::Path::new(uri.path());
@@ -367,7 +367,7 @@ part instance : Derived;
 
 #[tokio::test]
 async fn test_semantic_tokens_full_nonexistent_file() {
-    let state = TestServerState::new();
+    let mut state = TestServerState::new();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let result = state.server.get_semantic_tokens(&uri);
@@ -401,13 +401,15 @@ async fn test_hover_basic() {
         panic!("Expected scalar string content");
     };
 
+    eprintln!("Hover content: {}", content);
+
     assert!(
         content.contains("Vehicle"),
-        "Hover should contain symbol name"
+        "Hover should contain symbol name. Got: {content}"
     );
     assert!(
         content.contains("Part def"),
-        "Hover should contain symbol type"
+        "Hover should contain symbol type. Got: {content}"
     );
 }
 
@@ -727,20 +729,20 @@ async fn test_initialize_returns_capabilities() {
 #[tokio::test]
 async fn test_initialize_with_stdlib_disabled() {
     // Create server with stdlib disabled
-    let server = LspServer::with_config(false, None);
+    let mut server = LspServer::with_config(false, None);
 
     // Should work but not load stdlib
-    assert_eq!(server.workspace().file_count(), 0, "Should not load stdlib");
+    assert_eq!(server.file_count(), 0, "Should not load stdlib");
 }
 
 #[tokio::test]
 async fn test_initialize_with_custom_stdlib_path() {
     // Create server with custom path
     let custom_path = std::path::PathBuf::from("/custom/path");
-    let server = LspServer::with_config(true, Some(custom_path));
+    let mut server = LspServer::with_config(true, Some(custom_path));
 
     // Server should be created (even if path doesn't exist)
-    assert_eq!(server.workspace().file_count(), 0);
+    assert_eq!(server.file_count(), 0);
 }
 
 // ============================================================================
@@ -1334,16 +1336,9 @@ async fn test_did_open_valid_document() {
     state.open_doc(&uri, text);
 
     // Verify document was opened and parsed
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 
-    assert!(
-        state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Vehicle")
-    );
+    assert!(state.server.has_symbol("Vehicle"));
 }
 
 #[tokio::test]
@@ -1356,8 +1351,8 @@ async fn test_did_open_invalid_document() {
     let result = state.server.open_document(&uri, text);
     assert!(result.is_ok(), "Should succeed even with parse errors");
 
-    // Document should not be in workspace (parse failed)
-    assert_eq!(state.server.workspace().file_count(), 0);
+    // Document should be in workspace with empty AST (so file_id exists for completions)
+    assert_eq!(state.server.file_count(), 1);
 
     // But should have diagnostics
     let diagnostics = state.server.get_diagnostics(&uri);
@@ -1373,11 +1368,10 @@ async fn test_did_open_multiple_documents() {
     state.open_doc(&uri1, "part def Car;");
     state.open_doc(&uri2, "part def Truck;");
 
-    assert_eq!(state.server.workspace().file_count(), 2);
+    assert_eq!(state.server.file_count(), 2);
 
-    let st = state.server.workspace().symbol_table();
-    assert!(st.iter_symbols().any(|s| s.name() == "Car"));
-    assert!(st.iter_symbols().any(|s| s.name() == "Truck"));
+    assert!(state.server.has_symbol("Car"));
+    assert!(state.server.has_symbol("Truck"));
 }
 
 // ============================================================================
@@ -1405,22 +1399,8 @@ async fn test_did_change_incremental_insert() {
     state.server.parse_document(&uri);
 
     // Verify both symbols exist
-    assert!(
-        state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Car")
-    );
-    assert!(
-        state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Truck")
-    );
+    assert!(state.server.has_symbol("Car"));
+    assert!(state.server.has_symbol("Truck"));
 }
 
 #[tokio::test]
@@ -1444,22 +1424,8 @@ async fn test_did_change_incremental_delete() {
     state.server.parse_document(&uri);
 
     // Only Car should exist
-    assert!(
-        state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Car")
-    );
-    assert!(
-        !state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Truck")
-    );
+    assert!(state.server.has_symbol("Car"));
+    assert!(!state.server.has_symbol("Truck"));
 }
 
 #[tokio::test]
@@ -1482,22 +1448,8 @@ async fn test_did_change_incremental_replace() {
     state.server.apply_text_change_only(&uri, &change).unwrap();
     state.server.parse_document(&uri);
 
-    assert!(
-        state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Vehicle")
-    );
-    assert!(
-        !state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Car")
-    );
+    assert!(state.server.has_symbol("Vehicle"));
+    assert!(!state.server.has_symbol("Car"));
 }
 
 #[tokio::test]
@@ -1517,22 +1469,8 @@ async fn test_did_change_full_sync() {
     state.server.apply_text_change_only(&uri, &change).unwrap();
     state.server.parse_document(&uri);
 
-    assert!(
-        state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "CompletelyNew")
-    );
-    assert!(
-        !state
-            .server
-            .workspace()
-            .symbol_table()
-            .iter_symbols()
-            .any(|s| s.name() == "Car")
-    );
+    assert!(state.server.has_symbol("CompletelyNew"));
+    assert!(!state.server.has_symbol("Car"));
 }
 
 // ============================================================================
@@ -1545,13 +1483,13 @@ async fn test_did_close_document() {
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     state.open_doc(&uri, "part def Vehicle;");
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 
     // Close document
     state.server.close_document(&uri).unwrap();
 
     // Document stays in workspace (for cross-file references)
-    assert_eq!(state.server.workspace().file_count(), 1);
+    assert_eq!(state.server.file_count(), 1);
 }
 
 #[tokio::test]
@@ -1580,22 +1518,12 @@ async fn test_did_save_document() {
 
     // did_save is a no-op in current implementation
     // Just verify it doesn't break anything
-    let symbols_before = state
-        .server
-        .workspace()
-        .symbol_table()
-        .iter_symbols()
-        .count();
+    let symbols_before = state.server.symbol_count();
 
     // Simulate save (no-op)
     // In real ServerState, did_save returns ControlFlow::Continue(())
 
-    let symbols_after = state
-        .server
-        .workspace()
-        .symbol_table()
-        .iter_symbols()
-        .count();
+    let symbols_after = state.server.symbol_count();
     assert_eq!(
         symbols_before, symbols_after,
         "Save should not modify state"
@@ -1610,10 +1538,10 @@ async fn test_did_save_document() {
 async fn test_new_router_setup() {
     // Testing new_router requires async-lsp infrastructure
     // We test that the server can be created and used
-    let state = TestServerState::new();
+    let mut state = TestServerState::new();
 
     // Verify server is initialized
-    assert_eq!(state.server.workspace().file_count(), 0);
+    assert_eq!(state.server.file_count(), 0);
 }
 
 #[tokio::test]

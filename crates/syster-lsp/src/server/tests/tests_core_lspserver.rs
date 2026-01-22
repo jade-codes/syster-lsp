@@ -121,7 +121,7 @@ fn test_folding_ranges_empty_file() {
 
 #[test]
 fn test_folding_ranges_nonexistent_file() {
-    let server = create_server();
+    let mut server = create_server();
     let path = Path::new("/nonexistent.sysml");
     let ranges = server.get_folding_ranges(path);
 
@@ -373,7 +373,7 @@ fn test_semantic_tokens_empty_file() {
 
 #[test]
 fn test_semantic_tokens_nonexistent_file() {
-    let server = create_server();
+    let mut server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
     let result = server.get_semantic_tokens(&uri);
 
@@ -572,7 +572,7 @@ fn test_selection_ranges_out_of_bounds() {
 
 #[test]
 fn test_selection_ranges_nonexistent_file() {
-    let server = create_server();
+    let mut server = create_server();
     let path = Path::new("/nonexistent.sysml");
     let positions = vec![Position::new(0, 0)];
 
@@ -753,7 +753,7 @@ fn test_inlay_hints_empty_file() {
 
 #[test]
 fn test_inlay_hints_nonexistent_file() {
-    let server = create_server();
+    let mut server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let params = InlayHintParams {
@@ -1421,7 +1421,7 @@ fn test_selection_ranges_at_line_end() {
 
 #[test]
 fn test_selection_ranges_default_range_validity() {
-    let server = create_server();
+    let mut server = create_server();
     let path = Path::new("/nonexistent.sysml");
     let positions = vec![Position::new(5, 10), Position::new(10, 20)];
     let positions_copy = positions.clone();

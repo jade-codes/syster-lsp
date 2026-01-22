@@ -25,3 +25,6 @@ pub use core::LspServer;
 
 #[cfg(test)]
 mod tests;
+
+// Test helpers available for integration tests
+pub mod test_helpers;

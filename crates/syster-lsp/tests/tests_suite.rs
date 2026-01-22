@@ -5,8 +5,8 @@
 
 use async_lsp::lsp_types::{Position, Url};
 use std::path::PathBuf;
-use syster::core::Position as SysterPosition;
 use syster_lsp::server::LspServer;
+use syster_lsp::test_helpers::LspServerTestExt;
 
 // ============================================================
 // COMMON HELPER FUNCTIONS
@@ -35,46 +35,41 @@ fn open_test_document(server: &mut LspServer, source: &str) -> Url {
 }
 
 /// Print all symbols from the workspace that match a filter
-fn print_symbols_filtered(server: &LspServer, filter: &str) {
+fn print_symbols_filtered(server: &mut LspServer, filter: &str) {
     println!("\n=== SYMBOLS (filtered: '{}') ===", filter);
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        if sym.qualified_name().contains(filter) {
-            println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        if sym.qualified_name.contains(filter) {
+            println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
         }
     }
 }
 
 /// Print all symbols from the workspace
-fn print_all_symbols(server: &LspServer) {
+fn print_all_symbols(server: &mut LspServer) {
     println!("\n=== ALL SYMBOLS ===");
-    for sym in server.workspace().symbol_table().iter_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name(), sym.span());
+    for sym in server.all_symbols() {
+        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
     }
 }
 
 /// Print all references in a test file
-fn print_references_in_test_file(server: &LspServer) {
+fn print_references_in_test_file(server: &mut LspServer) {
     println!("\n=== ALL REFERENCES ===");
-    let ref_index = server.workspace().reference_index();
-    for target in ref_index.targets() {
-        let refs = ref_index.get_references(target);
-        for r in refs {
-            if r.file == std::path::Path::new("/test.sysml") {
-                println!(
-                    "  line={} col={}-{} target='{}' source='{}'",
-                    r.span.start.line,
-                    r.span.start.column,
-                    r.span.end.column,
-                    target,
-                    r.source_qname
-                );
-            }
-        }
+    let refs = server.references_in_file("/test.sysml");
+    for r in refs {
+        println!(
+            "  line={} col={}-{} target='{}' source='{}'",
+            r.start_line,
+            r.start_col,
+            r.end_col,
+            r.target,
+            r.source_symbol.as_deref().unwrap_or("<none>")
+        );
     }
 }
 
 /// Test hover at a range of columns on a given line
-fn test_hover_at_columns(server: &LspServer, uri: &Url, line: u32, col_start: u32, col_end: u32) {
+fn test_hover_at_columns(server: &mut LspServer, uri: &Url, line: u32, col_start: u32, col_end: u32) {
     println!("\n=== HOVER TESTS (line {}) ===", line);
     for col in col_start..col_end {
         let pos = Position {
@@ -95,9 +90,11 @@ fn test_hover_at_columns(server: &LspServer, uri: &Url, line: u32, col_start: u3
 }
 
 /// Check reference at a specific position
-fn check_reference_at_position(server: &LspServer, line: usize, col: usize, desc: &str) {
-    let ref_index = server.workspace().reference_index();
-    let ref_at_pos = ref_index.get_reference_at_position("/test.sysml", SysterPosition::new(line, col));
+fn check_reference_at_position(server: &mut LspServer, line: u32, col: u32, desc: &str) {
+    let refs = server.references_in_file("/test.sysml");
+    let ref_at_pos = refs.iter().find(|r| 
+        r.start_line == line && r.start_col <= col && col <= r.end_col
+    );
     println!("  Position ({}, {}) '{}': {:?}", line, col, desc, ref_at_pos);
 }
 
@@ -133,21 +130,18 @@ package Test {
 }"#;
 
         let uri = open_test_document(&mut server, source);
-        let _ref_index = server.workspace().reference_index();
 
         println!("\n=== KEY SYMBOLS ===");
-        let st = server.workspace().symbol_table();
-        if let Some(time_sym) = st.find_by_qualified_name("ISQSpaceTime::time") {
+        if let Some(time_sym) = server.find_symbol_qualified("ISQSpaceTime::time") {
             println!(
-                "ISQSpaceTime::time: {} (scope_id={})",
-                time_sym.qualified_name(),
-                time_sym.scope_id()
+                "ISQSpaceTime::time: {}",
+                time_sym.qualified_name
             );
         } else {
             println!("ISQSpaceTime::time: NOT FOUND");
         }
 
-        print_references_in_test_file(&server);
+        print_references_in_test_file(&mut server);
 
         println!("\n=== HOVER TESTS ===");
         // Test hover on scalarQuantities (starts around col 32)
@@ -202,8 +196,8 @@ package Test {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "Test::");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "Test::");
+        print_references_in_test_file(&mut server);
 
         println!("\n=== HOVER TESTS ===");
         // Line 7: require constraint {massActual <= massRequired}
@@ -228,8 +222,8 @@ package Test {
         );
 
         println!("\n=== REFERENCE AT POSITION ===");
-        check_reference_at_position(&server, 7, 30, "massActual");
-        check_reference_at_position(&server, 7, 45, "massRequired");
+        check_reference_at_position(&mut server, 7, 30, "massActual");
+        check_reference_at_position(&mut server, 7, 45, "massRequired");
     }
 
     #[test]
@@ -252,8 +246,8 @@ package Test {
 
         let uri = open_test_document(&mut server, source);
 
-        print_all_symbols(&server);
-        print_references_in_test_file(&server);
+        print_all_symbols(&mut server);
+        print_references_in_test_file(&mut server);
 
         println!("\n=== HOVER TESTS ===");
         // Test hover on scalarQuantities
@@ -324,8 +318,8 @@ package Test {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "Test::");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "Test::");
+        print_references_in_test_file(&mut server);
 
         println!("\n=== HOVER TESTS ===");
         // Line 27: first off
@@ -362,9 +356,9 @@ package Test {
         );
 
         println!("\n=== REFERENCE AT POSITION ===");
-        check_reference_at_position(&server, 27, 18, "off");
-        check_reference_at_position(&server, 28, 55, "ignitionCmdPort");
-        check_reference_at_position(&server, 31, 17, "starting");
+        check_reference_at_position(&mut server, 27, 18, "off");
+        check_reference_at_position(&mut server, 28, 55, "ignitionCmdPort");
+        check_reference_at_position(&mut server, 31, 17, "starting");
     }
 
     #[test]
@@ -392,16 +386,13 @@ part def Test {
 
         // Print all references in the file
         println!("ALL REFERENCES:");
-        let refs = server
-            .workspace()
-            .reference_index()
-            .get_references_in_file("/test.sysml");
-        for r in refs {
-            println!("  {} at {:?}", r.source_qname, r.span);
+        let refs = server.references_in_file("/test.sysml");
+        for r in &refs {
+            println!("  {} at ({}, {}, {})", r.source_symbol.as_deref().unwrap_or("<none>"), r.start_line, r.start_col, r.end_col);
         }
 
         let tests = [
-            (11, 12, "transportPassenger (col 12)"),
+            (11u32, 12u32, "transportPassenger (col 12)"),
             (11, 16, "transportPassenger (col 16)"),
             (12, 12, "transportPassenger (col 12)"),
         ];
@@ -410,15 +401,11 @@ part def Test {
         for (line, col, desc) in tests {
             let pos = Position::new(line, col);
 
-            let ref_at_pos = server
-                .workspace()
-                .reference_index()
-                .get_full_reference_at_position(
-                    "/test.sysml",
-                    SysterPosition::new(line as usize, col as usize),
-                );
+            let ref_at_pos = refs.iter().find(|r| 
+                r.start_line == line && r.start_col <= col && col <= r.end_col
+            );
             println!("\n({},{}) {}:", line, col, desc);
-            println!("  ref_at_pos: {:?}", ref_at_pos.map(|(t, _)| t));
+            println!("  ref_at_pos: {:?}", ref_at_pos.map(|r| &r.target));
 
             let hover = server.get_hover(&uri, pos);
             match hover {
@@ -462,10 +449,10 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_references_in_test_file(&server);
+        print_references_in_test_file(&mut server);
 
         println!("\n=== HOVER TESTS on line 5 (return : Real;) ===");
-        test_hover_at_columns(&server, &uri, 5, 8, 30);
+        test_hover_at_columns(&mut server, &uri, 5, 8, 30);
     }
 
     #[test]
@@ -485,12 +472,12 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "Test");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "Test");
+        print_references_in_test_file(&mut server);
 
         // Try hover at various positions on line 8 (the bind line)
         println!("\n=== HOVER TESTS ===");
-        test_hover_at_columns(&server, &uri, 8, 8, 50);
+        test_hover_at_columns(&mut server, &uri, 8, 8, 50);
     }
 
     #[test]
@@ -513,12 +500,12 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "Test");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "Test");
+        print_references_in_test_file(&mut server);
 
         // Try hover at various positions on line 9 (the first X then Y line)
         println!("\n=== HOVER TESTS (line 9) ===");
-        test_hover_at_columns(&server, &uri, 9, 8, 55);
+        test_hover_at_columns(&mut server, &uri, 9, 8, 55);
     }
 
     #[test]
@@ -538,12 +525,12 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "SimpleVehicleModel");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "SimpleVehicleModel");
+        print_references_in_test_file(&mut server);
 
         // Try hover on "return : Real;" (line 8)
         println!("\n=== HOVER TESTS on line 8 (return : Real) ===");
-        test_hover_at_columns(&server, &uri, 8, 8, 25);
+        test_hover_at_columns(&mut server, &uri, 8, 8, 25);
     }
 
     #[test]
@@ -559,12 +546,12 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "Test");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "Test");
+        print_references_in_test_file(&mut server);
 
         // Try hover at various positions
         println!("\n=== HOVER TESTS ===");
-        test_hover_at_columns(&server, &uri, 4, 22, 40);
+        test_hover_at_columns(&mut server, &uri, 4, 22, 40);
     }
 
     #[test]
@@ -581,16 +568,16 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_symbols_filtered(&server, "Test");
-        print_references_in_test_file(&server);
+        print_symbols_filtered(&mut server, "Test");
+        print_references_in_test_file(&mut server);
 
         // Try hover on line 5 (return : Real;)
         println!("\n=== HOVER TESTS on line 5 ===");
-        test_hover_at_columns(&server, &uri, 5, 8, 30);
+        test_hover_at_columns(&mut server, &uri, 5, 8, 30);
 
         // Also check line 4 (in x : Real;)
         println!("\n=== HOVER TESTS on line 4 (in x : Real) ===");
-        test_hover_at_columns(&server, &uri, 4, 8, 25);
+        test_hover_at_columns(&mut server, &uri, 4, 8, 25);
     }
 
     #[test]
@@ -606,16 +593,16 @@ mod debug_with_stdlib {
 
         let uri = open_test_document(&mut server, source);
 
-        print_all_symbols(&server);
-        print_references_in_test_file(&server);
+        print_all_symbols(&mut server);
+        print_references_in_test_file(&mut server);
 
         // Try hover at various positions on line 4
         println!("\n=== HOVER TESTS ===");
-        test_hover_at_columns(&server, &uri, 4, 24, 35);
+        test_hover_at_columns(&mut server, &uri, 4, 24, 35);
 
         println!("\n=== REFERENCE AT POSITION ===");
-        check_reference_at_position(&server, 4, 26, "ISQ");
-        check_reference_at_position(&server, 4, 30, "mass");
+        check_reference_at_position(&mut server, 4, 26, "ISQ");
+        check_reference_at_position(&mut server, 4, 30, "mass");
     }
 
     #[test]
@@ -633,19 +620,19 @@ mod debug_with_stdlib {
         let uri = open_test_document(&mut server, source);
 
         println!("\n=== CHECKING IMPORTS ===");
-        for sym in server.workspace().symbol_table().iter_symbols() {
-            if (sym.qualified_name() == "ISQ" || sym.qualified_name().starts_with("ISQ::"))
-                && !sym.qualified_name().contains("::")
+        for sym in server.all_symbols() {
+            if (sym.qualified_name == "ISQ" || sym.qualified_name.starts_with("ISQ::"))
+                && !sym.qualified_name.contains("::")
             {
-                println!("  {}", sym.qualified_name());
+                println!("  {}", sym.qualified_name);
             }
         }
 
         println!("\n=== HOVER TESTS on line 4 (in x : Real) ===");
-        test_hover_at_columns(&server, &uri, 4, 13, 22);
+        test_hover_at_columns(&mut server, &uri, 4, 13, 22);
 
         println!("\n=== HOVER TESTS on line 5 (return : Real) ===");
-        test_hover_at_columns(&server, &uri, 5, 13, 25);
+        test_hover_at_columns(&mut server, &uri, 5, 13, 25);
     }
 }
 
@@ -678,6 +665,20 @@ mod resolution_tests {
 }"#;
 
         let uri = open_test_document(&mut server, source);
+        
+        // Debug: print all symbols
+        println!("\n=== ALL SYMBOLS ===");
+        for sym in server.all_symbols() {
+            if sym.qualified_name.contains("ComputeBSFC") || sym.qualified_name.contains("Real") {
+                println!("  {} (supertypes: {:?})", sym.qualified_name, sym.supertypes);
+            }
+        }
+        
+        // Debug: print references in test file
+        println!("\n=== REFERENCES IN TEST FILE ===");
+        for r in server.references_in_file("/test.sysml") {
+            println!("  line={} col={}-{} target='{}'", r.start_line, r.start_col, r.end_col, r.target);
+        }
 
         // Line 13 (0-indexed): "            return : Real;"
         // Real starts at column 21

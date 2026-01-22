@@ -266,7 +266,7 @@ package TestPkg {
 
 #[test]
 fn test_document_links_invalid_file() {
-    let server = create_server();
+    let mut server = create_server();
     let uri = Url::parse("file:///nonexistent.sysml").unwrap();
 
     let links = server.get_document_links(&uri);
