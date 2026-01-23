@@ -174,8 +174,8 @@ impl LspServer {
             if let Err(err) = loader.load_directory_into_host(&folder, &mut self.analysis_host) {
                 // Log parse errors but continue - valid files are already loaded
                 tracing::warn!(
-                    "Some files in '{}' failed to parse:\n{err}",
-                    folder.display()
+                    folder = %folder.display().to_string(),
+                    "Some files failed to parse: {err}"
                 );
             }
         }
@@ -214,10 +214,10 @@ impl LspServer {
     fn sync_document_texts_from_files(&mut self) {
         for path in self.analysis_host.files().keys() {
             // Only load if not already tracked (avoid overwriting editor versions)
-            if !self.document_texts.contains_key(path)
-                && let Ok(text) = std::fs::read_to_string(path)
-            {
-                self.document_texts.insert(path.clone(), text);
+            if !self.document_texts.contains_key(path) {
+                if let Ok(text) = std::fs::read_to_string(path) {
+                    self.document_texts.insert(path.clone(), text);
+                }
             }
         }
     }

@@ -170,41 +170,37 @@ impl From<&TypeRef> for TypeRefSnapshot {
 impl LspServerTestExt for LspServer {
     fn symbol_count(&mut self) -> usize {
         let analysis = self.analysis_host.analysis();
-        analysis.symbol_index().all_symbols().count()
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().count();
+        result
     }
 
     fn has_symbol(&mut self, name: &str) -> bool {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .any(|s| s.name.as_ref() == name)
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().any(|s| s.name.as_ref() == name);
+        result
     }
 
     fn has_qualified_symbol(&mut self, qname: &str) -> bool {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .any(|s| s.qualified_name.as_ref() == qname)
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().any(|s| s.qualified_name.as_ref() == qname);
+        result
     }
 
     fn symbol_names(&mut self) -> Vec<String> {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .map(|s| s.name.to_string())
-            .collect()
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().map(|s| s.name.to_string()).collect();
+        result
     }
 
     fn qualified_symbol_names(&mut self) -> Vec<String> {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .map(|s| s.qualified_name.to_string())
-            .collect()
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().map(|s| s.qualified_name.to_string()).collect();
+        result
     }
 
     fn find_symbols<F>(&mut self, predicate: F) -> Vec<SymbolSnapshot>
@@ -212,39 +208,30 @@ impl LspServerTestExt for LspServer {
         F: Fn(&HirSymbol) -> bool,
     {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .filter(|s| predicate(s))
-            .map(SymbolSnapshot::from)
-            .collect()
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().filter(|s| predicate(s)).map(SymbolSnapshot::from).collect();
+        result
     }
 
     fn find_symbol(&mut self, name: &str) -> Option<SymbolSnapshot> {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .find(|s| s.name.as_ref() == name)
-            .map(SymbolSnapshot::from)
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().find(|s| s.name.as_ref() == name).map(SymbolSnapshot::from);
+        result
     }
 
     fn find_symbol_qualified(&mut self, qname: &str) -> Option<SymbolSnapshot> {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .find(|s| s.qualified_name.as_ref() == qname)
-            .map(SymbolSnapshot::from)
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().find(|s| s.qualified_name.as_ref() == qname).map(SymbolSnapshot::from);
+        result
     }
 
     fn all_symbols(&mut self) -> Vec<SymbolSnapshot> {
         let analysis = self.analysis_host.analysis();
-        analysis
-            .symbol_index()
-            .all_symbols()
-            .map(SymbolSnapshot::from)
-            .collect()
+        let index = analysis.symbol_index();
+        let result = index.all_symbols().map(SymbolSnapshot::from).collect();
+        result
     }
 
     fn print_all_symbols(&mut self) {
