@@ -6,15 +6,17 @@ ARTIFACT ?= syster-lsp
 
 help:
 	@echo "Available targets:"
-	@echo "  build          - Build the project"
-	@echo "  run            - Run the project"
-	@echo "  test           - Run tests"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  fmt            - Format code with rustfmt"
-	@echo "  lint           - Run clippy linter"
-	@echo "  check          - Run fmt + lint + test"
-	@echo "  run-guidelines - Run complete validation (fmt + lint + build + test)"
-	@echo "  package        - Build release package for distribution"
+	@echo "  build              - Build the project"
+	@echo "  release            - Build release binary"
+	@echo "  run                - Run the project"
+	@echo "  test               - Run tests"
+	@echo "  clean              - Clean build artifacts"
+	@echo "  fmt                - Format code with rustfmt"
+	@echo "  lint               - Run clippy linter"
+	@echo "  check              - Run fmt + lint + test"
+	@echo "  run-guidelines     - Run complete validation (fmt + lint + build + test)"
+	@echo "  package            - Build release package for distribution"
+	@echo "  install-vscode-lsp - Copy release binary to vscode-lsp for local dev"
 
 build:
 	cargo build
@@ -90,3 +92,31 @@ else
 	@cargo build --release
 	@echo "✓ Package built (use TARGET= and ARTIFACT= for release packaging)"
 endif
+
+# Copy release binary to vscode-lsp server directory for local development
+# Usage: make install-vscode-lsp VSCODE_LSP_DIR=../syster/editors/vscode-lsp
+VSCODE_LSP_DIR ?= ../syster/editors/vscode-lsp
+install-vscode-lsp: release
+	@echo "Installing to $(VSCODE_LSP_DIR)/server..."
+	@mkdir -p $(VSCODE_LSP_DIR)/server
+	@# Determine platform-specific binary name
+	@UNAME=$$(uname -s); ARCH=$$(uname -m); \
+	if [ "$$UNAME" = "Linux" ]; then \
+		BINARY_NAME="syster-lsp-linux-x64"; \
+	elif [ "$$UNAME" = "Darwin" ]; then \
+		if [ "$$ARCH" = "arm64" ]; then \
+			BINARY_NAME="syster-lsp-darwin-arm64"; \
+		else \
+			BINARY_NAME="syster-lsp-darwin-x64"; \
+		fi; \
+	else \
+		BINARY_NAME="syster-lsp-win32-x64.exe"; \
+	fi; \
+	cp target/release/syster-lsp $(VSCODE_LSP_DIR)/server/$$BINARY_NAME; \
+	chmod +x $(VSCODE_LSP_DIR)/server/$$BINARY_NAME; \
+	echo "✓ Copied to $(VSCODE_LSP_DIR)/server/$$BINARY_NAME"
+	@# Copy sysml.library if not already present
+	@if [ ! -d "$(VSCODE_LSP_DIR)/server/sysml.library" ]; then \
+		cp -r crates/syster-lsp/sysml.library $(VSCODE_LSP_DIR)/server/sysml.library; \
+		echo "✓ Copied sysml.library"; \
+	fi

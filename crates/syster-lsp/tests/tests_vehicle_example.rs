@@ -48,6 +48,20 @@ fn test_vehicle_example_all_references_have_hover() {
     
     // Collect all references with their targets from the test file
     let refs = server.references_in_file("/test.sysml");
+    
+    // Debug: print the type_refs for a message containing symbol
+    println!("\n[DEBUG] Looking for ignitionCmd type_refs...");
+    {
+        use syster_lsp::test_helpers::LspServerTestExt;
+        let all_refs = server.all_references();
+        for r in &all_refs {
+            if r.source_symbol.as_deref().map(|s| s.contains("ignitionCmd")).unwrap_or(false) {
+                println!("[DEBUG] ignitionCmd ref: target='{}' line={} col {}-{}", 
+                    r.target, r.start_line, r.start_col, r.end_col);
+            }
+        }
+    }
+    
     let mut all_refs: Vec<(String, String, u32, u32, u32)> = refs.into_iter()
         .map(|r| (r.target, r.source_symbol.unwrap_or_default(), r.start_line, r.start_col, r.end_col))
         .collect();
@@ -70,6 +84,12 @@ fn test_vehicle_example_all_references_have_hover() {
         
         let hover_result = server.get_hover(&uri, pos);
         let line_text = lines.get(*line as usize).unwrap_or(&"").to_string();
+        
+        // Debug: Print hover results for message chains
+        if line_text.contains("message") && line_text.contains("from") {
+            println!("[DEBUG] Message line {}: target='{}' col {}-{}", line + 1, target, col_start, col_end);
+            println!("[DEBUG]   hover_result={:?}", hover_result.as_ref().map(|h| format!("{:?}", h.contents)));
+        }
         
         match hover_result {
             Some(hover) => {
