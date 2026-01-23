@@ -200,10 +200,7 @@ fn test_folding_ranges_character_positions() {
     // Should include character positions
     for range in &ranges {
         // Character positions are optional in LSP but our impl provides them
-        if range.start_character.is_some() && range.end_character.is_some() {
-            let start_char = range.start_character.unwrap();
-            let end_char = range.end_character.unwrap();
-
+        if let (Some(start_char), Some(end_char)) = (range.start_character, range.end_character) {
             // On same line, end should be after start
             if range.start_line == range.end_line {
                 assert!(
