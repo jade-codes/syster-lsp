@@ -80,30 +80,31 @@ impl LspServer {
     }
 
     /// Parse text and update workspace
-    fn parse_into_workspace(&mut self, path: &PathBuf, text: &str) {
+    fn parse_into_workspace(&mut self, path: &std::path::Path, text: &str) {
         let parse_result = syster::project::file_loader::parse_with_result(text, path);
-        self.parse_errors.insert(path.clone(), parse_result.errors);
+        self.parse_errors
+            .insert(path.to_path_buf(), parse_result.errors);
 
         if let Some(file) = parse_result.content {
             // Use set_file which handles update vs add
-            self.analysis_host.set_file(path.clone(), file);
+            self.analysis_host.set_file(path.to_path_buf(), file);
             // Index is automatically marked dirty by AnalysisHost
         } else {
             // Parse failed completely - still add an empty file so the file_id exists
             // This allows completions/hover to work even with invalid syntax
             let empty_file = Self::create_empty_syntax_file(path);
-            self.analysis_host.set_file(path.clone(), empty_file);
+            self.analysis_host.set_file(path.to_path_buf(), empty_file);
         }
     }
 
     /// Create an empty SyntaxFile based on file extension
-    fn create_empty_syntax_file(path: &PathBuf) -> syster::syntax::SyntaxFile {
+    fn create_empty_syntax_file(path: &std::path::Path) -> syster::syntax::SyntaxFile {
         use syster::syntax::SyntaxFile;
-        use syster::syntax::sysml::ast::SysMLFile;
         use syster::syntax::kerml::KerMLFile;
+        use syster::syntax::sysml::ast::SysMLFile;
 
         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("sysml");
-        
+
         if ext == "kerml" {
             SyntaxFile::KerML(KerMLFile {
                 namespace: None,

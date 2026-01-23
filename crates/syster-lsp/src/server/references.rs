@@ -14,7 +14,7 @@ impl LspServer {
     ) -> Option<Vec<Location>> {
         let path = uri_to_path(uri)?;
         let path_str = path.to_string_lossy();
-        
+
         let analysis = self.analysis_host.analysis();
 
         // Get file ID for the new HIR layer
@@ -29,7 +29,8 @@ impl LspServer {
         );
 
         // Convert to LSP Locations
-        let locations: Vec<Location> = result.references
+        let locations: Vec<Location> = result
+            .references
             .into_iter()
             .filter_map(|reference| {
                 let ref_path = analysis.get_file_path(reference.file)?;

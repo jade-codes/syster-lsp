@@ -2,23 +2,60 @@
 
 Language Server Protocol implementation for SysML v2 and KerML.
 
+## Architecture
+
+Built on top of [syster-base](../syster-base), the LSP server uses **Salsa-based incremental computation** for efficient editing:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      LSP Server                              │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+│  │   Hover     │    │ Go-to-Def   │    │ Diagnostics │     │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘     │
+│         │                  │                   │            │
+│         └──────────────────┼───────────────────┘            │
+│                            ▼                                │
+│                    ┌───────────────┐                        │
+│                    │ AnalysisHost  │                        │
+│                    │ (SymbolIndex) │                        │
+│                    └───────┬───────┘                        │
+│                            │                                │
+│                            ▼                                │
+│                    ┌───────────────┐                        │
+│                    │  Salsa DB     │  ← Incremental queries │
+│                    │ (RootDatabase)│                        │
+│                    └───────────────┘                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key benefits:**
+- **Incremental**: Only changed files are re-parsed
+- **Memoized**: Queries cached automatically
+- **Fast**: `FileId` (4 bytes) enables O(1) file lookups
+
 ## Components
 
 - `crates/syster-lsp` - Rust LSP server binary
 
 ## Features
 
-- Syntax highlighting
-- Code completion
-- Go to definition
-- Find references
-- Hover documentation
-- Document outline
-- Code formatting
-- Semantic tokens
-- Inlay hints
-- Folding ranges
-- Diagram support
+| Feature | Description |
+|---------|-------------|
+| Syntax highlighting | Semantic tokens for SysML/KerML keywords, types, etc. |
+| Code completion | Context-aware completions for definitions, usages, imports |
+| Go to definition | Jump to symbol definitions |
+| Find references | Find all usages of a symbol |
+| Hover documentation | Type info, documentation, qualified names |
+| Document outline | Hierarchical symbol tree |
+| Code formatting | Auto-format SysML/KerML files |
+| Semantic tokens | Rich syntax highlighting |
+| Inlay hints | Inline type annotations |
+| Folding ranges | Collapse code blocks |
+| Document links | Clickable imports and type references |
+| Diagnostics | Parse errors + semantic errors (undefined refs, duplicates, etc.) |
+| Code lens | Inline reference counts |
+| Rename | Rename symbols across workspace |
+| Workspace symbols | Search symbols across all files |
 
 ## Building
 
@@ -48,7 +85,7 @@ This project includes a DevContainer configuration for a consistent development 
 3. Click "Reopen in Container" when prompted (or use Command Palette: "Dev Containers: Reopen in Container")
 
 **What's included:**
-- Rust 1.x with toolchain
+- Rust 1.85+ with 2024 edition
 - rust-analyzer, clippy
 - GitHub CLI
 - All VS Code extensions pre-configured
@@ -64,7 +101,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Build the LSP server
 cargo build --release -p syster-lsp
 
-# Install VS Code extension dependencies
-cd editors/vscode
-npm install
+# Run tests
+cargo test --release -p syster-lsp
+
+# Run clippy
+cargo clippy -p syster-lsp -- -D warnings
 ```

@@ -1,6 +1,6 @@
 use super::LspServer;
 use super::helpers::uri_to_path;
-use async_lsp::lsp_types::{DocumentLink, Range, Position, Url};
+use async_lsp::lsp_types::{DocumentLink, Position, Range, Url};
 
 impl LspServer {
     /// Get document links for imports and qualified references in the document
@@ -15,7 +15,7 @@ impl LspServer {
             Some(p) => p,
             None => return Vec::new(),
         };
-        
+
         let path_str = path.to_string_lossy();
         let analysis = self.analysis_host.analysis();
 
@@ -34,10 +34,11 @@ impl LspServer {
                 // Convert target FileId to URI
                 let target_path = analysis.get_file_path(link.target_file)?;
                 let target_uri = Url::from_file_path(target_path).ok()?;
-                
+
                 // Add line number to URI fragment for jump-to-line
                 let target_line = link.target_line + 1; // 1-indexed
-                let target_uri_with_line = Url::parse(&format!("{}#L{}", target_uri, target_line)).ok()?;
+                let target_uri_with_line =
+                    Url::parse(&format!("{}#L{}", target_uri, target_line)).ok()?;
 
                 Some(DocumentLink {
                     range: Range {

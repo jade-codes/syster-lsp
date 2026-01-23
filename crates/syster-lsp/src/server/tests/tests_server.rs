@@ -1,5 +1,7 @@
 use crate::server::LspServer;
-use crate::server::tests::test_helpers::{create_server, create_server_with_stdlib, LspServerTestExt};
+use crate::server::tests::test_helpers::{
+    LspServerTestExt, create_server, create_server_with_stdlib,
+};
 use async_lsp::lsp_types::{
     DiagnosticSeverity, HoverContents, MarkedString, Position, PrepareRenameResponse, Url,
 };
@@ -1566,7 +1568,7 @@ package Usage {
 
     // Position after colon in file2 (incomplete typing)
     let position = Position::new(3, 15);
-    
+
     let result = server.get_completions(std::path::Path::new("/usage.sysml"), position);
 
     match result {
@@ -2215,7 +2217,9 @@ fn test_cross_file_stdlib_reference_resolution() {
     }
 
     // Check specifically for attribute definitions
-    let attr_count = server.find_symbols(|s| matches!(s.kind, syster::hir::SymbolKind::AttributeDef)).len();
+    let attr_count = server
+        .find_symbols(|s| matches!(s.kind, syster::hir::SymbolKind::AttributeDef))
+        .len();
     let _ = attr_count; // Suppress unused warning
 
     // Open a file that references a stdlib type
@@ -2295,12 +2299,12 @@ fn test_stdlib_files_actually_load() {
 fn test_measurement_references_file_directly() {
     // Test that MeasurementReferences from stdlib loads and resolves properly
     let mut server = create_server_with_stdlib();
-    
+
     // Skip if stdlib not available
     if !server.has_stdlib_loaded() {
         return;
     }
-    
+
     // Check that DimensionOneUnit is findable
     let dim_one_unit = server.find_symbol_qualified("MeasurementReferences::DimensionOneUnit");
     assert!(
@@ -2313,19 +2317,19 @@ fn test_measurement_references_file_directly() {
 fn test_dimension_one_unit_cross_file_resolution() {
     // Test that user code can import and use stdlib types
     let mut server = create_server_with_stdlib();
-    
+
     // Skip if stdlib not available
     if !server.has_stdlib_loaded() {
         return;
     }
-    
+
     // Verify DimensionOneUnit exists in stdlib first
     let dim_one = server.find_symbol_qualified("MeasurementReferences::DimensionOneUnit");
     if dim_one.is_none() {
         // Stdlib may be incomplete in some test environments
         return;
     }
-    
+
     // Add user file that imports and uses DimensionOneUnit
     let uri = Url::parse("file:///test/myfile.sysml").unwrap();
     let test_code = r#"
@@ -2335,27 +2339,26 @@ package TestPkg {
     attribute def MyUnit :> DimensionOneUnit;
 }
 "#;
-    
+
     server.open_document(&uri, test_code).unwrap();
-    
+
     // Verify MyUnit is found
     let my_unit = server.find_symbol_qualified("TestPkg::MyUnit");
     assert!(my_unit.is_some(), "MyUnit should be found");
-    
+
     // Verify MyUnit has DimensionOneUnit as a supertype
     if let Some(sym) = my_unit {
-        assert!(
-            !sym.supertypes.is_empty(),
-            "MyUnit should have supertypes"
-        );
+        assert!(!sym.supertypes.is_empty(), "MyUnit should have supertypes");
         // The supertype should resolve to DimensionOneUnit
         assert!(
-            sym.supertypes.iter().any(|s| s.contains("DimensionOneUnit")),
+            sym.supertypes
+                .iter()
+                .any(|s| s.contains("DimensionOneUnit")),
             "MyUnit should have DimensionOneUnit as supertype, got {:?}",
             sym.supertypes
         );
     }
-    
+
     // Verify DimensionOneUnit is still findable after adding user file
     let dim_one_after = server.find_symbol_qualified("MeasurementReferences::DimensionOneUnit");
     assert!(

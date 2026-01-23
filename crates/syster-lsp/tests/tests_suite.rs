@@ -39,7 +39,11 @@ fn print_symbols_filtered(server: &mut LspServer, filter: &str) {
     println!("\n=== SYMBOLS (filtered: '{}') ===", filter);
     for sym in server.all_symbols() {
         if sym.qualified_name.contains(filter) {
-            println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+            println!(
+                "  {} (span: {:?})",
+                sym.qualified_name,
+                Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            );
         }
     }
 }
@@ -48,7 +52,11 @@ fn print_symbols_filtered(server: &mut LspServer, filter: &str) {
 fn print_all_symbols(server: &mut LspServer) {
     println!("\n=== ALL SYMBOLS ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 }
 
@@ -69,7 +77,13 @@ fn print_references_in_test_file(server: &mut LspServer) {
 }
 
 /// Test hover at a range of columns on a given line
-fn test_hover_at_columns(server: &mut LspServer, uri: &Url, line: u32, col_start: u32, col_end: u32) {
+fn test_hover_at_columns(
+    server: &mut LspServer,
+    uri: &Url,
+    line: u32,
+    col_start: u32,
+    col_end: u32,
+) {
     println!("\n=== HOVER TESTS (line {}) ===", line);
     for col in col_start..col_end {
         let pos = Position {
@@ -92,10 +106,13 @@ fn test_hover_at_columns(server: &mut LspServer, uri: &Url, line: u32, col_start
 /// Check reference at a specific position
 fn check_reference_at_position(server: &mut LspServer, line: u32, col: u32, desc: &str) {
     let refs = server.references_in_file("/test.sysml");
-    let ref_at_pos = refs.iter().find(|r| 
-        r.start_line == line && r.start_col <= col && col <= r.end_col
+    let ref_at_pos = refs
+        .iter()
+        .find(|r| r.start_line == line && r.start_col <= col && col <= r.end_col);
+    println!(
+        "  Position ({}, {}) '{}': {:?}",
+        line, col, desc, ref_at_pos
     );
-    println!("  Position ({}, {}) '{}': {:?}", line, col, desc, ref_at_pos);
 }
 
 // ============================================================
@@ -133,10 +150,7 @@ package Test {
 
         println!("\n=== KEY SYMBOLS ===");
         if let Some(time_sym) = server.find_symbol_qualified("ISQSpaceTime::time") {
-            println!(
-                "ISQSpaceTime::time: {}",
-                time_sym.qualified_name
-            );
+            println!("ISQSpaceTime::time: {}", time_sym.qualified_name);
         } else {
             println!("ISQSpaceTime::time: NOT FOUND");
         }
@@ -172,7 +186,10 @@ package Test {
         println!("Hover on 'distance' (18,60): {:?}", hover_dist.is_some());
 
         // Assertions
-        assert!(hover_scalar.is_some(), "hover on scalarQuantities should work");
+        assert!(
+            hover_scalar.is_some(),
+            "hover on scalarQuantities should work"
+        );
         assert!(
             hover_time.is_some(),
             "hover on time (alias via import) should work"
@@ -206,10 +223,7 @@ package Test {
             character: 30,
         };
         let hover_actual = server.get_hover(&uri, pos_actual);
-        println!(
-            "Hover on 'massActual' (7,30): {:?}",
-            hover_actual.is_some()
-        );
+        println!("Hover on 'massActual' (7,30): {:?}", hover_actual.is_some());
 
         let pos_required = Position {
             line: 7,
@@ -388,7 +402,13 @@ part def Test {
         println!("ALL REFERENCES:");
         let refs = server.references_in_file("/test.sysml");
         for r in &refs {
-            println!("  {} at ({}, {}, {})", r.source_symbol.as_deref().unwrap_or("<none>"), r.start_line, r.start_col, r.end_col);
+            println!(
+                "  {} at ({}, {}, {})",
+                r.source_symbol.as_deref().unwrap_or("<none>"),
+                r.start_line,
+                r.start_col,
+                r.end_col
+            );
         }
 
         let tests = [
@@ -401,9 +421,9 @@ part def Test {
         for (line, col, desc) in tests {
             let pos = Position::new(line, col);
 
-            let ref_at_pos = refs.iter().find(|r| 
-                r.start_line == line && r.start_col <= col && col <= r.end_col
-            );
+            let ref_at_pos = refs
+                .iter()
+                .find(|r| r.start_line == line && r.start_col <= col && col <= r.end_col);
             println!("\n({},{}) {}:", line, col, desc);
             println!("  ref_at_pos: {:?}", ref_at_pos.map(|r| &r.target));
 
@@ -665,19 +685,25 @@ mod resolution_tests {
 }"#;
 
         let uri = open_test_document(&mut server, source);
-        
+
         // Debug: print all symbols
         println!("\n=== ALL SYMBOLS ===");
         for sym in server.all_symbols() {
             if sym.qualified_name.contains("ComputeBSFC") || sym.qualified_name.contains("Real") {
-                println!("  {} (supertypes: {:?})", sym.qualified_name, sym.supertypes);
+                println!(
+                    "  {} (supertypes: {:?})",
+                    sym.qualified_name, sym.supertypes
+                );
             }
         }
-        
+
         // Debug: print references in test file
         println!("\n=== REFERENCES IN TEST FILE ===");
         for r in server.references_in_file("/test.sysml") {
-            println!("  line={} col={}-{} target='{}'", r.start_line, r.start_col, r.end_col, r.target);
+            println!(
+                "  line={} col={}-{} target='{}'",
+                r.start_line, r.start_col, r.end_col, r.target
+            );
         }
 
         // Line 13 (0-indexed): "            return : Real;"

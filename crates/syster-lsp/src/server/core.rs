@@ -163,7 +163,8 @@ impl LspServer {
 
         // Load stdlib if enabled
         if self.stdlib_enabled {
-            self.stdlib_loader.ensure_loaded_into_host(&mut self.analysis_host)?;
+            self.stdlib_loader
+                .ensure_loaded_into_host(&mut self.analysis_host)?;
         }
 
         // Load all SysML/KerML files from workspace folders
@@ -224,11 +225,13 @@ impl LspServer {
     // ==================== Accessors ====================
 
     /// Get the number of files loaded
+    #[allow(dead_code)]
     pub fn file_count(&self) -> usize {
         self.analysis_host.file_count()
     }
 
     /// Get mutable access to document_texts
+    #[allow(dead_code)]
     pub fn document_texts_mut(&mut self) -> &mut HashMap<PathBuf, String> {
         &mut self.document_texts
     }

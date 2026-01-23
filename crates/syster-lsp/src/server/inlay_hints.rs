@@ -18,7 +18,7 @@ impl LspServer {
 
         let path_str = path.to_string_lossy();
         let analysis = self.analysis_host.analysis();
-        
+
         let Some(file_id) = analysis.get_file_id(&path_str) else {
             return vec![];
         };

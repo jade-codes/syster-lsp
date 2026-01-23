@@ -180,6 +180,9 @@ classifier TestClass {
 
     let links = server.get_document_links(&test_uri);
 
+    // Debug: print what we got
+    eprintln!("Links: {:#?}", links);
+
     // Should have a link for the wildcard import
     assert_eq!(
         links.len(),
@@ -193,6 +196,8 @@ classifier TestClass {
         .as_ref()
         .and_then(|u| u.to_file_path().ok())
         .expect("Link should have a valid file path");
+
+    eprintln!("Target path: {:?}", target_path);
 
     assert!(
         target_path.to_string_lossy().contains("base.kerml"),

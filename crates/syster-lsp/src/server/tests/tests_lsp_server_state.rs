@@ -7,7 +7,7 @@
 
 use crate::server::LspServer;
 use crate::server::formatting::*;
-use crate::server::tests::test_helpers::{create_server, LspServerTestExt};
+use crate::server::tests::test_helpers::{LspServerTestExt, create_server};
 use async_lsp::lsp_types::*;
 
 /// Helper struct to create a ServerState for testing
@@ -729,7 +729,7 @@ async fn test_initialize_returns_capabilities() {
 #[tokio::test]
 async fn test_initialize_with_stdlib_disabled() {
     // Create server with stdlib disabled
-    let mut server = LspServer::with_config(false, None);
+    let server = LspServer::with_config(false, None);
 
     // Should work but not load stdlib
     assert_eq!(server.file_count(), 0, "Should not load stdlib");
@@ -739,7 +739,7 @@ async fn test_initialize_with_stdlib_disabled() {
 async fn test_initialize_with_custom_stdlib_path() {
     // Create server with custom path
     let custom_path = std::path::PathBuf::from("/custom/path");
-    let mut server = LspServer::with_config(true, Some(custom_path));
+    let server = LspServer::with_config(true, Some(custom_path));
 
     // Server should be created (even if path doesn't exist)
     assert_eq!(server.file_count(), 0);
@@ -1538,7 +1538,7 @@ async fn test_did_save_document() {
 async fn test_new_router_setup() {
     // Testing new_router requires async-lsp infrastructure
     // We test that the server can be created and used
-    let mut state = TestServerState::new();
+    let state = TestServerState::new();
 
     // Verify server is initialized
     assert_eq!(state.server.file_count(), 0);

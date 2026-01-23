@@ -52,25 +52,45 @@ impl LspServer {
 fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
     match kind {
         HirSymbolKind::Package => SymbolKind::NAMESPACE,
-        
+
         // Definitions are classes
-        HirSymbolKind::PartDef | HirSymbolKind::ItemDef | HirSymbolKind::ActionDef |
-        HirSymbolKind::PortDef | HirSymbolKind::AttributeDef | HirSymbolKind::ConnectionDef |
-        HirSymbolKind::InterfaceDef | HirSymbolKind::AllocationDef | HirSymbolKind::RequirementDef |
-        HirSymbolKind::ConstraintDef | HirSymbolKind::StateDef | HirSymbolKind::CalculationDef |
-        HirSymbolKind::UseCaseDef | HirSymbolKind::AnalysisCaseDef | HirSymbolKind::ConcernDef |
-        HirSymbolKind::ViewDef | HirSymbolKind::ViewpointDef | HirSymbolKind::RenderingDef |
-        HirSymbolKind::EnumerationDef => SymbolKind::CLASS,
-        
+        HirSymbolKind::PartDef
+        | HirSymbolKind::ItemDef
+        | HirSymbolKind::ActionDef
+        | HirSymbolKind::PortDef
+        | HirSymbolKind::AttributeDef
+        | HirSymbolKind::ConnectionDef
+        | HirSymbolKind::InterfaceDef
+        | HirSymbolKind::AllocationDef
+        | HirSymbolKind::RequirementDef
+        | HirSymbolKind::ConstraintDef
+        | HirSymbolKind::StateDef
+        | HirSymbolKind::CalculationDef
+        | HirSymbolKind::UseCaseDef
+        | HirSymbolKind::AnalysisCaseDef
+        | HirSymbolKind::ConcernDef
+        | HirSymbolKind::ViewDef
+        | HirSymbolKind::ViewpointDef
+        | HirSymbolKind::RenderingDef
+        | HirSymbolKind::EnumerationDef => SymbolKind::CLASS,
+
         // Usages are properties
-        HirSymbolKind::PartUsage | HirSymbolKind::ItemUsage | HirSymbolKind::ActionUsage |
-        HirSymbolKind::PortUsage | HirSymbolKind::AttributeUsage | HirSymbolKind::ConnectionUsage |
-        HirSymbolKind::InterfaceUsage | HirSymbolKind::AllocationUsage | HirSymbolKind::RequirementUsage |
-        HirSymbolKind::ConstraintUsage | HirSymbolKind::StateUsage | HirSymbolKind::CalculationUsage |
-        HirSymbolKind::ReferenceUsage | HirSymbolKind::OccurrenceUsage | HirSymbolKind::FlowUsage => {
-            SymbolKind::PROPERTY
-        }
-        
+        HirSymbolKind::PartUsage
+        | HirSymbolKind::ItemUsage
+        | HirSymbolKind::ActionUsage
+        | HirSymbolKind::PortUsage
+        | HirSymbolKind::AttributeUsage
+        | HirSymbolKind::ConnectionUsage
+        | HirSymbolKind::InterfaceUsage
+        | HirSymbolKind::AllocationUsage
+        | HirSymbolKind::RequirementUsage
+        | HirSymbolKind::ConstraintUsage
+        | HirSymbolKind::StateUsage
+        | HirSymbolKind::CalculationUsage
+        | HirSymbolKind::ReferenceUsage
+        | HirSymbolKind::OccurrenceUsage
+        | HirSymbolKind::FlowUsage => SymbolKind::PROPERTY,
+
         HirSymbolKind::Alias => SymbolKind::VARIABLE,
         HirSymbolKind::Import => SymbolKind::NAMESPACE,
         HirSymbolKind::Comment => SymbolKind::STRING,

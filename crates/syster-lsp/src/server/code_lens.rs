@@ -12,10 +12,10 @@ impl LspServer {
         let Some(path) = uri_to_path(uri) else {
             return Vec::new();
         };
-        
+
         let analysis = self.analysis_host.analysis();
         let path_str = path.to_string_lossy();
-        
+
         let Some(file_id) = analysis.get_file_id(&path_str) else {
             return Vec::new();
         };
@@ -42,7 +42,8 @@ impl LspServer {
 
             // Count references using type_refs
             let qualified_name = symbol.qualified_name.as_ref();
-            let references = Self::collect_reference_locations_from_analysis(&analysis, qualified_name);
+            let references =
+                Self::collect_reference_locations_from_analysis(&analysis, qualified_name);
             let reference_count = references.len();
 
             // Only show code lens if there are references
@@ -79,8 +80,12 @@ impl LspServer {
     }
 
     /// Collect all reference locations for a qualified name
-    fn collect_reference_locations_from_analysis(analysis: &syster::ide::Analysis<'_>, qualified_name: &str) -> Vec<Location> {
-        analysis.symbol_index()
+    fn collect_reference_locations_from_analysis(
+        analysis: &syster::ide::Analysis<'_>,
+        qualified_name: &str,
+    ) -> Vec<Location> {
+        analysis
+            .symbol_index()
             .all_symbols()
             .flat_map(|sym| {
                 sym.type_refs

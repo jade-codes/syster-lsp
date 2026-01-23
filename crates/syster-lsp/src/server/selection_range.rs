@@ -1,4 +1,3 @@
-
 //! Selection range support for the LSP server
 
 use super::LspServer;
@@ -17,7 +16,7 @@ impl LspServer {
     ) -> Vec<SelectionRange> {
         let path_str = file_path.to_string_lossy();
         let analysis = self.analysis_host.analysis();
-        
+
         let Some(file_id) = analysis.get_file_id(&path_str) else {
             return positions
                 .iter()
@@ -28,13 +27,7 @@ impl LspServer {
         // Collect ranges from analysis first
         let all_ranges: Vec<Vec<ide::SelectionRange>> = positions
             .iter()
-            .map(|pos| {
-                analysis.selection_ranges(
-                    file_id,
-                    pos.line,
-                    pos.character,
-                )
-            })
+            .map(|pos| analysis.selection_ranges(file_id, pos.line, pos.character))
             .collect();
 
         // Now build the results without borrowing self
@@ -60,8 +53,14 @@ impl LspServer {
         let outermost = iter.next().expect("ranges should not be empty");
         let mut current = SelectionRange {
             range: Range {
-                start: Position { line: outermost.start_line, character: outermost.start_col },
-                end: Position { line: outermost.end_line, character: outermost.end_col },
+                start: Position {
+                    line: outermost.start_line,
+                    character: outermost.start_col,
+                },
+                end: Position {
+                    line: outermost.end_line,
+                    character: outermost.end_col,
+                },
             },
             parent: None,
         };
@@ -70,8 +69,14 @@ impl LspServer {
         for r in iter {
             current = SelectionRange {
                 range: Range {
-                    start: Position { line: r.start_line, character: r.start_col },
-                    end: Position { line: r.end_line, character: r.end_col },
+                    start: Position {
+                        line: r.start_line,
+                        character: r.start_col,
+                    },
+                    end: Position {
+                        line: r.end_line,
+                        character: r.end_col,
+                    },
                 },
                 parent: Some(Box::new(current)),
             };

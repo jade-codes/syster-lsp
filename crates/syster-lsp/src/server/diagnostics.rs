@@ -1,7 +1,7 @@
 use super::LspServer;
 use super::helpers::{position_to_lsp_position, uri_to_path};
 use async_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
-use syster::hir::{check_file, Severity as HirSeverity};
+use syster::hir::{Severity as HirSeverity, check_file};
 
 impl LspServer {
     /// Get LSP diagnostics for a given file (parse errors + semantic errors)
@@ -51,7 +51,9 @@ impl LspServer {
                             },
                         },
                         severity: Some(hir_severity_to_lsp(diag.severity)),
-                        code: diag.code.map(|c| async_lsp::lsp_types::NumberOrString::String(c.to_string())),
+                        code: diag
+                            .code
+                            .map(|c| async_lsp::lsp_types::NumberOrString::String(c.to_string())),
                         message: diag.message.to_string(),
                         source: Some("syster-semantic".to_string()),
                         ..Default::default()

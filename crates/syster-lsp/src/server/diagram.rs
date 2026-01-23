@@ -102,7 +102,7 @@ impl LspServer {
         let mut relationships = Vec::new();
 
         let analysis = self.analysis_host.analysis();
-        
+
         // Collect symbols based on file path or whole workspace
         let symbol_iter: Box<dyn Iterator<Item = &HirSymbol>> = if let Some(path) = file_path {
             let path_str = path.to_string_lossy();
@@ -144,7 +144,7 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
     let qualified_name = symbol.qualified_name.to_string();
     let parent = extract_parent(&qualified_name);
     let typed_by = symbol.supertypes.first().map(|s| s.to_string());
-    
+
     let node_type = match symbol.kind {
         // Definitions
         SymbolKind::PartDef => "PartDef",
@@ -166,7 +166,7 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         SymbolKind::ViewpointDef => "ViewpointDef",
         SymbolKind::RenderingDef => "RenderingDef",
         SymbolKind::EnumerationDef => "EnumerationDef",
-        
+
         // Usages
         SymbolKind::PartUsage => "PartUsage",
         SymbolKind::ItemUsage => "ItemUsage",
@@ -183,14 +183,18 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         SymbolKind::ReferenceUsage => "ReferenceUsage",
         SymbolKind::OccurrenceUsage => "OccurrenceUsage",
         SymbolKind::FlowUsage => "FlowUsage",
-        
+
         // Other
         SymbolKind::Package => "Package",
-        SymbolKind::Alias | SymbolKind::Import | SymbolKind::Comment | SymbolKind::Dependency | SymbolKind::Other => {
+        SymbolKind::Alias
+        | SymbolKind::Import
+        | SymbolKind::Comment
+        | SymbolKind::Dependency
+        | SymbolKind::Other => {
             return None;
         }
     };
-    
+
     Some(DiagramSymbol {
         name,
         qualified_name,
@@ -325,7 +329,7 @@ mod tests {
     #[test]
     fn test_convert_definition_symbol() {
         use syster::base::FileId;
-        
+
         let symbol = HirSymbol {
             name: "Vehicle".into(),
             short_name: None,

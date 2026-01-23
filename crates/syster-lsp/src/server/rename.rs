@@ -6,17 +6,25 @@ use std::collections::HashMap;
 impl LspServer {
     /// Prepare rename: validate that the symbol at the position can be renamed
     /// Returns the range of the symbol and its current text, or None if rename is not valid
-    pub fn prepare_rename(&mut self, uri: &Url, position: Position) -> Option<PrepareRenameResponse> {
+    pub fn prepare_rename(
+        &mut self,
+        uri: &Url,
+        position: Position,
+    ) -> Option<PrepareRenameResponse> {
         let path = uri_to_path(uri)?;
         let (element_name, range) = self.find_symbol_at_position(&path, position)?;
-        
+
         let analysis = self.analysis_host.analysis();
 
         // Try qualified name lookup first, then simple name
-        let symbol = analysis.symbol_index().lookup_qualified(&element_name)
+        let symbol = analysis
+            .symbol_index()
+            .lookup_qualified(&element_name)
             .or_else(|| {
                 // Try simple name lookup and find a definition
-                analysis.symbol_index().lookup_simple(&element_name)
+                analysis
+                    .symbol_index()
+                    .lookup_simple(&element_name)
                     .into_iter()
                     .find(|s| s.kind.is_definition())
             })?;
@@ -44,7 +52,7 @@ impl LspServer {
         let path = uri_to_path(uri)?;
         let path_str = path.to_string_lossy();
         let (_element_name, _) = self.find_symbol_at_position(&path, position)?;
-        
+
         let analysis = self.analysis_host.analysis();
         let file_id = analysis.get_file_id(&path_str)?;
 
@@ -64,23 +72,23 @@ impl LspServer {
         let mut edits_by_file: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
         for reference in result.references {
-            if let Some(ref_path) = analysis.get_file_path(reference.file) {
-                if let Ok(file_uri) = Url::from_file_path(ref_path) {
-                    let range = Range {
-                        start: Position {
-                            line: reference.start_line,
-                            character: reference.start_col,
-                        },
-                        end: Position {
-                            line: reference.end_line,
-                            character: reference.end_col,
-                        },
-                    };
-                    edits_by_file.entry(file_uri).or_default().push(TextEdit {
-                        range,
-                        new_text: new_name.to_string(),
-                    });
-                }
+            if let Some(ref_path) = analysis.get_file_path(reference.file)
+                && let Ok(file_uri) = Url::from_file_path(ref_path)
+            {
+                let range = Range {
+                    start: Position {
+                        line: reference.start_line,
+                        character: reference.start_col,
+                    },
+                    end: Position {
+                        line: reference.end_line,
+                        character: reference.end_col,
+                    },
+                };
+                edits_by_file.entry(file_uri).or_default().push(TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                });
             }
         }
 

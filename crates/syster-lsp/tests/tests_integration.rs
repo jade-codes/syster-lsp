@@ -14,7 +14,9 @@ fn stdlib_path() -> PathBuf {
 /// Helper: Create an LspServer with stdlib loaded
 fn create_server_with_stdlib() -> LspServer {
     let mut server = LspServer::with_config(true, Some(stdlib_path()));
-    server.ensure_workspace_loaded().expect("Failed to load stdlib");
+    server
+        .ensure_workspace_loaded()
+        .expect("Failed to load stdlib");
     server
 }
 
@@ -22,10 +24,12 @@ fn create_server_with_stdlib() -> LspServer {
 fn create_analysis_host_with_stdlib() -> syster::ide::AnalysisHost {
     use syster::ide::AnalysisHost;
     use syster::project::StdLibLoader;
-    
+
     let mut host = AnalysisHost::new();
     let mut stdlib_loader = StdLibLoader::with_path(stdlib_path());
-    stdlib_loader.ensure_loaded_into_host(&mut host).expect("Failed to load stdlib");
+    stdlib_loader
+        .ensure_loaded_into_host(&mut host)
+        .expect("Failed to load stdlib");
     host.mark_dirty();
     host
 }
@@ -190,7 +194,7 @@ fn test_stdlib_symbols_present() {
     let stdlib_path = stdlib_path();
     let mut server = LspServer::with_config(true, Some(stdlib_path));
 
-    // Load stdlib 
+    // Load stdlib
     server
         .ensure_workspace_loaded()
         .expect("Failed to load stdlib");
@@ -242,10 +246,7 @@ package TestPackage {
 
     // Verify file is in workspace
     let path = PathBuf::from("/test.sysml");
-    assert!(
-        server.has_file_path(&path),
-        "File should be in workspace"
-    );
+    assert!(server.has_file_path(&path), "File should be in workspace");
 }
 #[test]
 fn test_symbol_resolution_after_population() {
@@ -787,10 +788,7 @@ fn test_timing_with_stdlib_loaded() {
         start.elapsed().as_micros() as f64 / 1000.0
     );
     println!("Workspace files: {}", server.loaded_file_count());
-    println!(
-        "Symbols: {}",
-        server.symbol_count()
-    );
+    println!("Symbols: {}", server.symbol_count());
 
     // Find AnalysisTooling.sysml
     let analysis_tooling_path = server
@@ -853,17 +851,18 @@ fn test_hover_temperature_difference_value_no_duplicate_specialization() {
     // Create server with stdlib loaded
     let stdlib_path = stdlib_path();
     let mut server = LspServer::with_config(true, Some(stdlib_path));
-    server.ensure_workspace_loaded().expect("Failed to load stdlib");
+    server
+        .ensure_workspace_loaded()
+        .expect("Failed to load stdlib");
 
     // Find ISQ::TemperatureDifferenceValue symbol
-    let temp_diff_symbol = server
-        .find_symbol_qualified("ISQ::TemperatureDifferenceValue");
+    let temp_diff_symbol = server.find_symbol_qualified("ISQ::TemperatureDifferenceValue");
 
     assert!(
         temp_diff_symbol.is_some(),
         "Should find TemperatureDifferenceValue"
     );
-    
+
     // Symbol found is enough to verify the test passes
     println!(
         "Found TemperatureDifferenceValue: {:?}",
@@ -878,14 +877,12 @@ fn test_hover_output_temperature_difference_value() {
     let analysis = host.analysis();
 
     // Find ISQ::TemperatureDifferenceValue symbol
-    let symbol = analysis.symbol_index()
+    let symbol = analysis
+        .symbol_index()
         .all_symbols()
         .find(|sym| sym.qualified_name.as_ref() == "ISQ::TemperatureDifferenceValue");
 
-    assert!(
-        symbol.is_some(),
-        "Should find TemperatureDifferenceValue"
-    );
+    assert!(symbol.is_some(), "Should find TemperatureDifferenceValue");
     let sym = symbol.unwrap();
 
     // Generate the actual hover output using the IDE layer
@@ -911,14 +908,12 @@ fn test_hover_output_celsius_temperature_value() {
     let analysis = host.analysis();
 
     // Find ISQThermodynamics::CelsiusTemperatureValue symbol
-    let symbol = analysis.symbol_index()
+    let symbol = analysis
+        .symbol_index()
         .all_symbols()
         .find(|sym| sym.qualified_name.as_ref() == "ISQThermodynamics::CelsiusTemperatureValue");
 
-    assert!(
-        symbol.is_some(),
-        "Should find CelsiusTemperatureValue"
-    );
+    assert!(symbol.is_some(), "Should find CelsiusTemperatureValue");
     let sym = symbol.unwrap();
 
     // Generate the actual hover output using the IDE layer
@@ -944,7 +939,8 @@ fn test_hover_at_position_temperature_difference_value() {
     let analysis = host.analysis();
 
     // Check: are there multiple symbols with name "TemperatureDifferenceValue"?
-    let matching_symbols: Vec<_> = analysis.symbol_index()
+    let matching_symbols: Vec<_> = analysis
+        .symbol_index()
         .all_symbols()
         .filter(|sym| sym.name.as_ref() == "TemperatureDifferenceValue")
         .collect();
@@ -958,13 +954,16 @@ fn test_hover_at_position_temperature_difference_value() {
     // Now generate hover for each and check
     for sym in &matching_symbols {
         let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
-        assert!(hover_result.is_some(), "Should get hover for {}", sym.qualified_name);
+        assert!(
+            hover_result.is_some(),
+            "Should get hover for {}",
+            sym.qualified_name
+        );
         let hover = hover_result.unwrap().contents;
         let count = hover.matches("ScalarQuantityValue").count();
         println!("\n--- Hover for {} ---\n{}", sym.qualified_name, hover);
         assert_eq!(
-            count,
-            1,
+            count, 1,
             "Should have exactly 1 ScalarQuantityValue in hover for {}",
             sym.qualified_name
         );
@@ -1815,7 +1814,10 @@ fn test_hover_isq_massvalue() {
 
     // Debug: Check ISQ symbols
     let isq_package = server.find_symbol_qualified("ISQ");
-    println!("ISQ package found: {:?}", isq_package.as_ref().map(|s| &s.name));
+    println!(
+        "ISQ package found: {:?}",
+        isq_package.as_ref().map(|s| &s.name)
+    );
 
     let isqbase_massvalue = server.find_symbol_qualified("ISQBase::MassValue");
     println!(
@@ -1902,7 +1904,10 @@ fn test_hover_isq_massvalue_extension_stdlib() {
 
     // Debug: Check ISQ symbols
     let isq_package = server.find_symbol_qualified("ISQ");
-    println!("ISQ package found: {:?}", isq_package.as_ref().map(|s| &s.name));
+    println!(
+        "ISQ package found: {:?}",
+        isq_package.as_ref().map(|s| &s.name)
+    );
 
     let isqbase_massvalue = server.find_symbol_qualified("ISQBase::MassValue");
     println!(
@@ -1970,15 +1975,17 @@ fn test_semantic_tokens_for_requirement_derivation_file() {
     );
 
     // Collect semantic tokens via LSP API
-    let uri = async_lsp::lsp_types::Url::from_file_path(&req_deriv_path).expect("should create URI");
+    let uri =
+        async_lsp::lsp_types::Url::from_file_path(&req_deriv_path).expect("should create URI");
     let tokens_result = server.get_semantic_tokens(&uri);
-    
-    let token_count = tokens_result.as_ref().map(|t| {
-        match t {
+
+    let token_count = tokens_result
+        .as_ref()
+        .map(|t| match t {
             async_lsp::lsp_types::SemanticTokensResult::Tokens(tokens) => tokens.data.len(),
             async_lsp::lsp_types::SemanticTokensResult::Partial(_) => 0,
-        }
-    }).unwrap_or(0);
+        })
+        .unwrap_or(0);
 
     println!("\nSemantic tokens count: {}", token_count);
 
@@ -2193,7 +2200,10 @@ part def Camera {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
+        println!(
+            "  {} (line {}-{})",
+            sym.qualified_name, sym.start_line, sym.end_line
+        );
         println!("      supertypes: {:?}", sym.supertypes);
     }
 
@@ -2214,7 +2224,10 @@ part def Camera {
         character: 28,
     };
 
-    println!("\n=== Testing hover at ({}, {}) ===", focus_position.line, focus_position.character);
+    println!(
+        "\n=== Testing hover at ({}, {}) ===",
+        focus_position.line, focus_position.character
+    );
 
     let hover_focus = server.get_hover(&uri, focus_position);
     println!("Hover result: {:?}", hover_focus);
@@ -2246,7 +2259,8 @@ part def Camera {
 
     // The hover SHOULD contain the qualified name
     assert!(
-        content.contains("TakePicture::focus") || content.contains("PictureTaking::TakePicture::focus"),
+        content.contains("TakePicture::focus")
+            || content.contains("PictureTaking::TakePicture::focus"),
         "Hover should show the resolved qualified name for 'focus'.\n\
          Expected to contain 'TakePicture::focus' or 'PictureTaking::TakePicture::focus'.\n\
          Got: {}",
@@ -2287,7 +2301,11 @@ fn test_flow_statement_hover_resolves_feature_chains() {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Debug: Print all reference index targets
@@ -2296,7 +2314,10 @@ fn test_flow_statement_hover_resolves_feature_chains() {
     for target in server.all_reference_targets() {
         println!("  target: {}", target);
         for ref_info in all_refs.iter().filter(|r| r.target == target) {
-            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
+            println!(
+                "    -> line {}, col {}-{}",
+                ref_info.start_line, ref_info.start_col, ref_info.end_col
+            );
         }
     }
 
@@ -2307,7 +2328,10 @@ fn test_flow_statement_hover_resolves_feature_chains() {
         character: 16, // 'Exposure' starts around column 16
     };
 
-    println!("\n=== Testing hover on 'Exposure' at ({}, {}) ===", exposure_position.line, exposure_position.character);
+    println!(
+        "\n=== Testing hover on 'Exposure' at ({}, {}) ===",
+        exposure_position.line, exposure_position.character
+    );
 
     let hover_exposure = server.get_hover(&uri, exposure_position);
     println!("Hover result: {:?}", hover_exposure);
@@ -2323,7 +2347,10 @@ fn test_flow_statement_hover_resolves_feature_chains() {
         character: 30, // 'focus' starts at column 30
     };
 
-    println!("\n=== Testing hover on 'focus' at ({}, {}) ===", focus_position.line, focus_position.character);
+    println!(
+        "\n=== Testing hover on 'focus' at ({}, {}) ===",
+        focus_position.line, focus_position.character
+    );
 
     let hover_focus = server.get_hover(&uri, focus_position);
     println!("Hover result: {:?}", hover_focus);
@@ -2339,7 +2366,10 @@ fn test_flow_statement_hover_resolves_feature_chains() {
         character: 36, // 'xrsl' starts at column 36
     };
 
-    println!("\n=== Testing hover on 'xrsl' at ({}, {}) ===", xrsl_position.line, xrsl_position.character);
+    println!(
+        "\n=== Testing hover on 'xrsl' at ({}, {}) ===",
+        xrsl_position.line, xrsl_position.character
+    );
 
     let hover_xrsl = server.get_hover(&uri, xrsl_position);
     println!("Hover result: {:?}", hover_xrsl);
@@ -2421,7 +2451,11 @@ fn test_connection_usage_endpoint_hover() {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Debug: Print all reference index targets
@@ -2430,7 +2464,10 @@ fn test_connection_usage_endpoint_hover() {
     for target in server.all_reference_targets() {
         println!("  target: {}", target);
         for ref_info in all_refs.iter().filter(|r| r.target == target) {
-            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
+            println!(
+                "    -> line {}, col {}-{}",
+                ref_info.start_line, ref_info.start_col, ref_info.end_col
+            );
         }
     }
 
@@ -2441,7 +2478,10 @@ fn test_connection_usage_endpoint_hover() {
         character: 27,
     };
 
-    println!("\n=== Testing hover on 'causer1' at ({}, {}) ===", causer1_position.line, causer1_position.character);
+    println!(
+        "\n=== Testing hover on 'causer1' at ({}, {}) ===",
+        causer1_position.line, causer1_position.character
+    );
 
     let hover_causer1 = server.get_hover(&uri, causer1_position);
     println!("Hover result: {:?}", hover_causer1);
@@ -2533,7 +2573,11 @@ fn test_connection_patterns_comprehensive_hover() {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Debug: Print all reference index targets
@@ -2542,7 +2586,10 @@ fn test_connection_patterns_comprehensive_hover() {
     for target in server.all_reference_targets() {
         println!("  target: {}", target);
         for ref_info in all_refs.iter().filter(|r| r.target == target) {
-            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
+            println!(
+                "    -> line {}, col {}-{}",
+                ref_info.start_line, ref_info.start_col, ref_info.end_col
+            );
         }
     }
 
@@ -2552,8 +2599,10 @@ fn test_connection_patterns_comprehensive_hover() {
         line: 14,
         character: 26,
     };
-    println!("\n=== Testing Pattern 1: 'a' in 'end cause ::> a' at ({}, {}) ===", 
-             pattern1_position.line, pattern1_position.character);
+    println!(
+        "\n=== Testing Pattern 1: 'a' in 'end cause ::> a' at ({}, {}) ===",
+        pattern1_position.line, pattern1_position.character
+    );
     let hover_pattern1 = server.get_hover(&uri, pattern1_position);
     println!("Hover result: {:?}", hover_pattern1);
     assert!(
@@ -2561,14 +2610,16 @@ fn test_connection_patterns_comprehensive_hover() {
         "Hover on 'a' in 'end cause ::> a' should return a result"
     );
 
-    // Test Pattern 2: `part causeA ::> a;` on line 21 (0-indexed)  
+    // Test Pattern 2: `part causeA ::> a;` on line 21 (0-indexed)
     // 'a' spans columns 24-25 based on debug output
     let pattern2_position = Position {
         line: 21,
         character: 24,
     };
-    println!("\n=== Testing Pattern 2: 'a' in 'part causeA ::> a' at ({}, {}) ===", 
-             pattern2_position.line, pattern2_position.character);
+    println!(
+        "\n=== Testing Pattern 2: 'a' in 'part causeA ::> a' at ({}, {}) ===",
+        pattern2_position.line, pattern2_position.character
+    );
     let hover_pattern2 = server.get_hover(&uri, pattern2_position);
     println!("Hover result: {:?}", hover_pattern2);
     assert!(
@@ -2582,8 +2633,10 @@ fn test_connection_patterns_comprehensive_hover() {
         line: 27,
         character: 45,
     };
-    println!("\n=== Testing Pattern 3: 'causeA' in 'connect ( causeA, ...)' at ({}, {}) ===", 
-             pattern3_position.line, pattern3_position.character);
+    println!(
+        "\n=== Testing Pattern 3: 'causeA' in 'connect ( causeA, ...)' at ({}, {}) ===",
+        pattern3_position.line, pattern3_position.character
+    );
     let hover_pattern3 = server.get_hover(&uri, pattern3_position);
     println!("Hover result: {:?}", hover_pattern3);
     assert!(
@@ -2597,8 +2650,10 @@ fn test_connection_patterns_comprehensive_hover() {
         line: 30,
         character: 38,
     };
-    println!("\n=== Testing Pattern 4a: 'a' in 'connect a to c' at ({}, {}) ===", 
-             pattern4_a_position.line, pattern4_a_position.character);
+    println!(
+        "\n=== Testing Pattern 4a: 'a' in 'connect a to c' at ({}, {}) ===",
+        pattern4_a_position.line, pattern4_a_position.character
+    );
     let hover_pattern4_a = server.get_hover(&uri, pattern4_a_position);
     println!("Hover result: {:?}", hover_pattern4_a);
     assert!(
@@ -2611,8 +2666,10 @@ fn test_connection_patterns_comprehensive_hover() {
         line: 30,
         character: 43,
     };
-    println!("\n=== Testing Pattern 4b: 'c' in 'connect a to c' at ({}, {}) ===", 
-             pattern4_c_position.line, pattern4_c_position.character);
+    println!(
+        "\n=== Testing Pattern 4b: 'c' in 'connect a to c' at ({}, {}) ===",
+        pattern4_c_position.line, pattern4_c_position.character
+    );
     let hover_pattern4_c = server.get_hover(&uri, pattern4_c_position);
     println!("Hover result: {:?}", hover_pattern4_c);
     assert!(
@@ -2655,7 +2712,11 @@ fn test_comment_about_hover() {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Debug: Print all reference index targets
@@ -2664,7 +2725,10 @@ fn test_comment_about_hover() {
     for target in server.all_reference_targets() {
         println!("  target: {}", target);
         for ref_info in all_refs.iter().filter(|r| r.target == target) {
-            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
+            println!(
+                "    -> line {}, col {}-{}",
+                ref_info.start_line, ref_info.start_col, ref_info.end_col
+            );
         }
     }
 
@@ -2674,8 +2738,10 @@ fn test_comment_about_hover() {
         line: 6,
         character: 27,
     };
-    println!("\n=== Testing: 'cmt' in 'comment cmt_cmt about cmt' at ({}, {}) ===", 
-             cmt_ref_position.line, cmt_ref_position.character);
+    println!(
+        "\n=== Testing: 'cmt' in 'comment cmt_cmt about cmt' at ({}, {}) ===",
+        cmt_ref_position.line, cmt_ref_position.character
+    );
     let hover_cmt_ref = server.get_hover(&uri, cmt_ref_position);
     println!("Hover result: {:?}", hover_cmt_ref);
     assert!(
@@ -2689,8 +2755,10 @@ fn test_comment_about_hover() {
         line: 8,
         character: 18,
     };
-    println!("\n=== Testing: 'C' in 'comment about C' at ({}, {}) ===", 
-             c_ref_position.line, c_ref_position.character);
+    println!(
+        "\n=== Testing: 'C' in 'comment about C' at ({}, {}) ===",
+        c_ref_position.line, c_ref_position.character
+    );
     let hover_c_ref = server.get_hover(&uri, c_ref_position);
     println!("Hover result: {:?}", hover_c_ref);
     assert!(
@@ -2704,8 +2772,10 @@ fn test_comment_about_hover() {
         line: 12,
         character: 22,
     };
-    println!("\n=== Testing: 'Comments' in 'comment about Comments' at ({}, {}) ===", 
-             comments_ref_position.line, comments_ref_position.character);
+    println!(
+        "\n=== Testing: 'Comments' in 'comment about Comments' at ({}, {}) ===",
+        comments_ref_position.line, comments_ref_position.character
+    );
     let hover_comments_ref = server.get_hover(&uri, comments_ref_position);
     println!("Hover result: {:?}", hover_comments_ref);
     assert!(
@@ -2753,7 +2823,11 @@ package CarWithEnvelopingShape {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Debug: Print all reference targets
@@ -2762,7 +2836,10 @@ package CarWithEnvelopingShape {
     for target in server.all_reference_targets() {
         println!("  target: {}", target);
         for ref_info in all_refs.iter().filter(|r| r.target == target) {
-            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
+            println!(
+                "    -> line {}, col {}-{}",
+                ref_info.start_line, ref_info.start_col, ref_info.end_col
+            );
         }
     }
 
@@ -2773,8 +2850,10 @@ package CarWithEnvelopingShape {
         line: 12,
         character: 27,
     };
-    println!("\n=== Testing: 'Box' in 'item boundingBox : Box' at ({}, {}) ===", 
-             box_position.line, box_position.character);
+    println!(
+        "\n=== Testing: 'Box' in 'item boundingBox : Box' at ({}, {}) ===",
+        box_position.line, box_position.character
+    );
     let hover_box = server.get_hover(&uri, box_position);
     println!("Hover result: {:?}", hover_box);
     assert!(
@@ -2787,7 +2866,8 @@ package CarWithEnvelopingShape {
         let content = format!("{:?}", hover.contents);
         assert!(
             content.contains("ShapeItems::Box"),
-            "Hover should show fully qualified name ShapeItems::Box, got: {}", content
+            "Hover should show fully qualified name ShapeItems::Box, got: {}",
+            content
         );
     }
 }
@@ -2834,7 +2914,11 @@ fn test_hover_imported_type_cross_file() {
     // Debug: Print all symbols
     println!("\n=== All Symbols (cross-file) ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Debug: Print all reference targets
@@ -2843,7 +2927,10 @@ fn test_hover_imported_type_cross_file() {
     for target in server.all_reference_targets() {
         println!("  target: {}", target);
         for ref_info in all_refs.iter().filter(|r| r.target == target) {
-            println!("    -> line {}, col {}-{}", ref_info.start_line, ref_info.start_col, ref_info.end_col);
+            println!(
+                "    -> line {}, col {}-{}",
+                ref_info.start_line, ref_info.start_col, ref_info.end_col
+            );
         }
     }
 
@@ -2854,8 +2941,10 @@ fn test_hover_imported_type_cross_file() {
         line: 4,
         character: 27,
     };
-    println!("\n=== Testing: 'Box' in 'item boundingBox : Box' at ({}, {}) (cross-file) ===", 
-             box_position.line, box_position.character);
+    println!(
+        "\n=== Testing: 'Box' in 'item boundingBox : Box' at ({}, {}) (cross-file) ===",
+        box_position.line, box_position.character
+    );
     let hover_box = server.get_hover(&uri2, box_position);
     println!("Hover result: {:?}", hover_box);
     assert!(
@@ -2868,11 +2957,11 @@ fn test_hover_imported_type_cross_file() {
         let content = format!("{:?}", hover.contents);
         assert!(
             content.contains("ShapeItems::Box"),
-            "Hover should show fully qualified name ShapeItems::Box, got: {}", content
+            "Hover should show fully qualified name ShapeItems::Box, got: {}",
+            content
         );
     }
 }
-
 
 #[test]
 fn test_hover_message_usage() {
@@ -2884,7 +2973,7 @@ fn test_hover_message_usage() {
     let uri = Url::parse("file:///test_message.sysml").unwrap();
 
     // SysML with message usages inside a part definition
-    // Note: messages inside interface port bodies (`in port { message ... }`) 
+    // Note: messages inside interface port bodies (`in port { message ... }`)
     // are not currently parsed due to grammar limitations
     let source = r#"package Signals {
     item def SensedSpeed;
@@ -2907,7 +2996,11 @@ package VehicleInterface {
     // Debug: Print all symbols
     println!("\n=== All Symbols (message test) ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Test: Hover on 'sendSensedSpeed' message name
@@ -2917,8 +3010,10 @@ package VehicleInterface {
         line: 9,
         character: 18,
     };
-    println!("\n=== Testing: 'sendSensedSpeed' message name at ({}, {}) ===", 
-             msg_name_position.line, msg_name_position.character);
+    println!(
+        "\n=== Testing: 'sendSensedSpeed' message name at ({}, {}) ===",
+        msg_name_position.line, msg_name_position.character
+    );
     let hover_msg_name = server.get_hover(&uri, msg_name_position);
     println!("Hover result on message name: {:?}", hover_msg_name);
     assert!(
@@ -2931,7 +3026,8 @@ package VehicleInterface {
         let content = format!("{:?}", hover.contents);
         assert!(
             content.contains("Message") || content.contains("sendSensedSpeed"),
-            "Hover should show message info, got: {}", content
+            "Hover should show message info, got: {}",
+            content
         );
     }
 
@@ -2942,8 +3038,10 @@ package VehicleInterface {
         line: 9,
         character: 40,
     };
-    println!("\n=== Testing: 'SensedSpeed' type in message at ({}, {}) ===", 
-             msg_type_position.line, msg_type_position.character);
+    println!(
+        "\n=== Testing: 'SensedSpeed' type in message at ({}, {}) ===",
+        msg_type_position.line, msg_type_position.character
+    );
     let hover_msg_type = server.get_hover(&uri, msg_type_position);
     println!("Hover result on message type: {:?}", hover_msg_type);
     assert!(
@@ -2956,11 +3054,11 @@ package VehicleInterface {
         let content = format!("{:?}", hover.contents);
         assert!(
             content.contains("SensedSpeed"),
-            "Hover should show SensedSpeed, got: {}", content
+            "Hover should show SensedSpeed, got: {}",
+            content
         );
     }
 }
-
 
 #[test]
 fn test_hover_event_occurrence_usage() {
@@ -2990,7 +3088,11 @@ fn test_hover_event_occurrence_usage() {
     // Debug: Print all symbols
     println!("\n=== All Symbols (event test) ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Test: Hover on 'setSpeedReceived' event name
@@ -2999,8 +3101,10 @@ fn test_hover_event_occurrence_usage() {
         line: 3,
         character: 32,
     };
-    println!("\n=== Testing: 'setSpeedReceived' event at ({}, {}) ===", 
-             event_position.line, event_position.character);
+    println!(
+        "\n=== Testing: 'setSpeedReceived' event at ({}, {}) ===",
+        event_position.line, event_position.character
+    );
     let hover_event = server.get_hover(&uri, event_position);
     println!("Hover result on event: {:?}", hover_event);
     assert!(
@@ -3013,7 +3117,8 @@ fn test_hover_event_occurrence_usage() {
         let content = format!("{:?}", hover.contents);
         assert!(
             content.contains("Event") || content.contains("setSpeedReceived"),
-            "Hover should show event info, got: {}", content
+            "Hover should show event info, got: {}",
+            content
         );
     }
 }
@@ -3055,17 +3160,23 @@ fn test_hover_imported_type_in_message() {
     // Debug: Print all symbols
     println!("\n=== All Symbols (import in message test) ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Test: Hover on 'IgnitionCmd' type reference in message
     // Line 7 (0-indexed): `        message of ignitionCmd:IgnitionCmd from driver.turnOn to vehicle.trigger;`
     let type_position = Position {
         line: 7,
-        character: 34,  // Position on 'IgnitionCmd' after the colon
+        character: 34, // Position on 'IgnitionCmd' after the colon
     };
-    println!("\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===", 
-             type_position.line, type_position.character);
+    println!(
+        "\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===",
+        type_position.line, type_position.character
+    );
     let hover_type = server.get_hover(&main_uri, type_position);
     println!("Hover result on IgnitionCmd: {:?}", hover_type);
     assert!(
@@ -3078,7 +3189,8 @@ fn test_hover_imported_type_in_message() {
         let content = format!("{:?}", hover.contents);
         assert!(
             content.contains("Item") || content.contains("IgnitionCmd"),
-            "Hover should show item definition info, got: {}", content
+            "Hover should show item definition info, got: {}",
+            content
         );
     }
 }
@@ -3122,17 +3234,23 @@ fn test_hover_type_in_action_body_with_send_accept() {
     // Debug: Print all symbols
     println!("\n=== All Symbols (send/accept test) ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 
     // Test: Hover on 'EngineStatus' in the send action body
     // Line 19 (0-indexed): `            in es : EngineStatus;`
     let type_position = Position {
         line: 19,
-        character: 22,  // Position on 'EngineStatus'
+        character: 22, // Position on 'EngineStatus'
     };
-    println!("\n=== Testing: 'EngineStatus' type at ({}, {}) ===", 
-             type_position.line, type_position.character);
+    println!(
+        "\n=== Testing: 'EngineStatus' type at ({}, {}) ===",
+        type_position.line, type_position.character
+    );
     let hover_type = server.get_hover(&uri, type_position);
     println!("Hover result on EngineStatus: {:?}", hover_type);
     assert!(
@@ -3144,10 +3262,12 @@ fn test_hover_type_in_action_body_with_send_accept() {
     // Line 21 (0-indexed): `        action trigger2 accept es : EngineStatus via driver.p2;`
     let accept_position = Position {
         line: 21,
-        character: 39,  // Position on 'EngineStatus'
+        character: 39, // Position on 'EngineStatus'
     };
-    println!("\n=== Testing: 'EngineStatus' in accept at ({}, {}) ===", 
-             accept_position.line, accept_position.character);
+    println!(
+        "\n=== Testing: 'EngineStatus' in accept at ({}, {}) ===",
+        accept_position.line, accept_position.character
+    );
     let hover_accept = server.get_hover(&uri, accept_position);
     println!("Hover result on EngineStatus in accept: {:?}", hover_accept);
     assert!(
@@ -3172,7 +3292,10 @@ fn test_hover_type_in_cross_file_action_sequence() {
     println!("\n=== OPENING FILE 1: SignalTypes.sysml ===");
     let result1 = server.open_document(&types_uri, types_source);
     println!("  open_document result: {:?}", result1);
-    println!("  Files in workspace: {:?}", server.loaded_file_paths().iter().collect::<Vec<_>>());
+    println!(
+        "  Files in workspace: {:?}",
+        server.loaded_file_paths().iter().collect::<Vec<_>>()
+    );
 
     // File 2: Use the imported types - follows real SysML spec structure
     // Note: send/accept actions must be inside an action body, not directly in part def
@@ -3215,10 +3338,16 @@ fn test_hover_type_in_cross_file_action_sequence() {
     println!("\n=== OPENING FILE 2: VehicleInteraction.sysml ===");
     let result2 = server.open_document(&main_uri, main_source);
     println!("  open_document result: {:?}", result2);
-    println!("  Files in workspace: {:?}", server.loaded_file_paths().iter().collect::<Vec<_>>());
-    
+    println!(
+        "  Files in workspace: {:?}",
+        server.loaded_file_paths().iter().collect::<Vec<_>>()
+    );
+
     // Try to manually parse the file to see errors
-    let manual_parse = syster::syntax::sysml::parser::parse_with_result(main_source, &std::path::PathBuf::from("/VehicleInteraction.sysml"));
+    let manual_parse = syster::syntax::sysml::parser::parse_with_result(
+        main_source,
+        &std::path::PathBuf::from("/VehicleInteraction.sysml"),
+    );
     println!("  Manual parse errors: {:?}", manual_parse.errors);
 
     // Debug: Check file count
@@ -3231,26 +3360,40 @@ fn test_hover_type_in_cross_file_action_sequence() {
     // Debug: Print all symbols
     println!("\n=== All Symbols (cross-file action sequence test) ===");
     for sym in server.all_symbols() {
-        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
+        println!(
+            "  {} (line {}-{})",
+            sym.qualified_name, sym.start_line, sym.end_line
+        );
     }
 
     // Debug: Check reference index for the file
     println!("\n=== Reference Index for VehicleInteraction.sysml ===");
     // Check if IgnitionCmd is indexed as a reference
     let all_refs = server.all_references();
-    let ignition_refs: Vec<_> = all_refs.iter().filter(|r| r.target == "IgnitionCmd").collect();
+    let ignition_refs: Vec<_> = all_refs
+        .iter()
+        .filter(|r| r.target == "IgnitionCmd")
+        .collect();
     println!("  References to 'IgnitionCmd': {:?}", ignition_refs);
-    let qualified_refs: Vec<_> = all_refs.iter().filter(|r| r.target == "SignalTypes::IgnitionCmd").collect();
-    println!("  References to 'SignalTypes::IgnitionCmd': {:?}", qualified_refs);
+    let qualified_refs: Vec<_> = all_refs
+        .iter()
+        .filter(|r| r.target == "SignalTypes::IgnitionCmd")
+        .collect();
+    println!(
+        "  References to 'SignalTypes::IgnitionCmd': {:?}",
+        qualified_refs
+    );
 
     // Test: Hover on 'IgnitionCmd' type in send action body
     // Line 16 (0-indexed): `                in ignitionCmd : IgnitionCmd;`
     let ignition_position = Position {
         line: 16,
-        character: 33,  // Position on 'IgnitionCmd' 
+        character: 33, // Position on 'IgnitionCmd'
     };
-    println!("\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===", 
-             ignition_position.line, ignition_position.character);
+    println!(
+        "\n=== Testing: 'IgnitionCmd' type at ({}, {}) ===",
+        ignition_position.line, ignition_position.character
+    );
     let hover_ignition = server.get_hover(&main_uri, ignition_position);
     println!("Hover result on IgnitionCmd: {:?}", hover_ignition);
     assert!(
@@ -3258,15 +3401,17 @@ fn test_hover_type_in_cross_file_action_sequence() {
         "Hover on imported type 'IgnitionCmd' in send action should return a result"
     );
 
-    // Test: Hover on 'EngineStatus' type in sendStatus action body  
+    // Test: Hover on 'EngineStatus' type in sendStatus action body
     // Line 24 (0-indexed): `                in es : EngineStatus;`
     // Reference span shows column 24
     let engine_position = Position {
         line: 24,
-        character: 24,  // Position on 'EngineStatus' (from reference span)
+        character: 24, // Position on 'EngineStatus' (from reference span)
     };
-    println!("\n=== Testing: 'EngineStatus' type at ({}, {}) ===", 
-             engine_position.line, engine_position.character);
+    println!(
+        "\n=== Testing: 'EngineStatus' type at ({}, {}) ===",
+        engine_position.line, engine_position.character
+    );
     let hover_engine = server.get_hover(&main_uri, engine_position);
     println!("Hover result on EngineStatus: {:?}", hover_engine);
     assert!(
@@ -3279,10 +3424,12 @@ fn test_hover_type_in_cross_file_action_sequence() {
     // Reference span shows column 40
     let accept_position = Position {
         line: 26,
-        character: 40,  // Position on 'EngineStatus' (from reference span)
+        character: 40, // Position on 'EngineStatus' (from reference span)
     };
-    println!("\n=== Testing: 'EngineStatus' in accept at ({}, {}) ===", 
-             accept_position.line, accept_position.character);
+    println!(
+        "\n=== Testing: 'EngineStatus' in accept at ({}, {}) ===",
+        accept_position.line, accept_position.character
+    );
     let hover_accept = server.get_hover(&main_uri, accept_position);
     println!("Hover result on EngineStatus in accept: {:?}", hover_accept);
     assert!(
@@ -3344,7 +3491,11 @@ fn test_hover_vehicle_example() {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (span: {:?})", sym.qualified_name, Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col)));
+        println!(
+            "  {} (span: {:?})",
+            sym.qualified_name,
+            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+        );
     }
 }
 
@@ -3401,7 +3552,10 @@ fn test_hover_type_in_vehicle_send_accept() {
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
+        println!(
+            "  {} (line {}-{})",
+            sym.qualified_name, sym.start_line, sym.end_line
+        );
     }
 
     // Debug: Print all references in file
@@ -3409,33 +3563,54 @@ fn test_hover_type_in_vehicle_send_accept() {
     let refs_in_file = server.references_in_file("/test.sysml");
     println!("  Count: {}", refs_in_file.len());
     for r in refs_in_file {
-        println!("  target {} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
+        println!(
+            "  target {} at line {}, col {}-{}",
+            r.target, r.start_line, r.start_col, r.end_col
+        );
     }
 
     // Test 1: Hover on IgnitionCmd in send action body (line 18)
     // `                        in ignitionCmd : IgnitionCmd;`
-    let pos1 = Position { line: 18, character: 42 };
+    let pos1 = Position {
+        line: 18,
+        character: 42,
+    };
     println!("\n=== Test 1: IgnitionCmd at line 18 ===");
-    
+
     let hover1 = server.get_hover(&uri, pos1);
     println!("Hover: {:?}", hover1);
-    assert!(hover1.is_some(), "Hover on IgnitionCmd in send action body should work");
+    assert!(
+        hover1.is_some(),
+        "Hover on IgnitionCmd in send action body should work"
+    );
 
     // Test 2: Hover on IgnitionCmd in accept action (line 20)
     // `                    action trigger1 accept ignitionCmd : IgnitionCmd via vehicle.ignitionCmdPort;`
-    let pos2 = Position { line: 20, character: 62 };
+    let pos2 = Position {
+        line: 20,
+        character: 62,
+    };
     println!("\n=== Test 2: IgnitionCmd at line 20 ===");
     let hover2 = server.get_hover(&uri, pos2);
     println!("Hover: {:?}", hover2);
-    assert!(hover2.is_some(), "Hover on IgnitionCmd in accept action should work");
+    assert!(
+        hover2.is_some(),
+        "Hover on IgnitionCmd in accept action should work"
+    );
 
     // Test 3: Hover on EngineStatus in message (line 33)
     // `                message of es : EngineStatus from vehicle.sendStatus to driver.trigger2;`
-    let pos3 = Position { line: 33, character: 35 };
+    let pos3 = Position {
+        line: 33,
+        character: 35,
+    };
     println!("\n=== Test 3: EngineStatus at line 33 ===");
     let hover3 = server.get_hover(&uri, pos3);
     println!("Hover: {:?}", hover3);
-    assert!(hover3.is_some(), "Hover on EngineStatus in message should work");
+    assert!(
+        hover3.is_some(),
+        "Hover on EngineStatus in message should work"
+    );
 }
 
 #[test]
@@ -3472,21 +3647,30 @@ fn test_hover_torque_alias_with_stdlib() {
     let torque_value = {
         let tv = server.resolve_name("ISQ", "TorqueValue");
         println!("\n=== Debug: ISQ::TorqueValue resolution ===");
-        println!("TorqueValue from ISQ scope: {:?}", tv.as_ref().map(|s| &s.qualified_name));
+        println!(
+            "TorqueValue from ISQ scope: {:?}",
+            tv.as_ref().map(|s| &s.qualified_name)
+        );
         tv.is_some()
     };
 
     // Check the alias was created
     let torque_alias = {
         let ta = server.find_symbol_qualified("Automotive::Torque");
-        println!("Automotive::Torque: {:?}", ta.as_ref().map(|s| &s.qualified_name));
+        println!(
+            "Automotive::Torque: {:?}",
+            ta.as_ref().map(|s| &s.qualified_name)
+        );
         ta.is_some()
     };
 
     // Test hover on Torque type reference (line 4, character ~30)
     // `        in driveshaftTorque : Torque;`
     //                               ^-- around column 29-34
-    let pos = Position { line: 4, character: 30 };
+    let pos = Position {
+        line: 4,
+        character: 30,
+    };
     println!("\n=== Test: Hover on Torque at line 4 ===");
     let hover = server.get_hover(&uri, pos);
     println!("Hover: {:?}", hover);
@@ -3498,10 +3682,7 @@ fn test_hover_torque_alias_with_stdlib() {
     );
 
     // Then verify alias was created
-    assert!(
-        torque_alias,
-        "Automotive::Torque alias should exist"
-    );
+    assert!(torque_alias, "Automotive::Torque alias should exist");
 
     // Finally verify hover works
     assert!(
@@ -3540,13 +3721,19 @@ fn test_hover_on_qualified_alias_target() {
         .expect("Should parse document");
 
     // Test hover on "ISQ" part of ISQ::TorqueValue (line 2, around column 21)
-    let pos_isq = Position { line: 2, character: 21 };
+    let pos_isq = Position {
+        line: 2,
+        character: 21,
+    };
     println!("\n=== Test: Hover on ISQ at line 2 ===");
     let hover_isq = server.get_hover(&uri, pos_isq);
     println!("Hover on ISQ: {:?}", hover_isq);
 
     // Test hover on "TorqueValue" part of ISQ::TorqueValue (line 2, around column 27)
-    let pos_torque_value = Position { line: 2, character: 27 };
+    let pos_torque_value = Position {
+        line: 2,
+        character: 27,
+    };
     println!("\n=== Test: Hover on TorqueValue at line 2 ===");
     let hover_torque_value = server.get_hover(&uri, pos_torque_value);
     println!("Hover on TorqueValue: {:?}", hover_torque_value);
@@ -3609,13 +3796,19 @@ fn test_hover_on_nested_port_type_reference() {
     println!("\n=== All references in test file ===");
     let refs = server.references_in_file("/test.sysml");
     for r in &refs {
-        println!("  target {} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
+        println!(
+            "  target {} at line {}, col {}-{}",
+            r.target, r.start_line, r.start_col, r.end_col
+        );
     }
 
     // Test hover on Torque in `out torque : Torque;` (line 9)
     // Line 9: `                out torque : Torque;`
     //                                       ^-- around column 33
-    let pos = Position { line: 9, character: 33 };
+    let pos = Position {
+        line: 9,
+        character: 33,
+    };
     println!("\n=== Test: Hover on Torque at line 9 ===");
     let hover = server.get_hover(&uri, pos);
     println!("Hover: {:?}", hover);
@@ -3681,13 +3874,19 @@ fn test_hover_in_state_and_transition() {
     println!("\n=== All references ===");
     let refs = server.references_in_file("/test.sysml");
     for r in &refs {
-        println!("  target {} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
+        println!(
+            "  target {} at line {}, col {}-{}",
+            r.target, r.start_line, r.start_col, r.end_col
+        );
     }
 
     // Test hover on IgnitionCmd in accept clause
     // Line 24: `                accept ignitionCmd:IgnitionCmd via ignitionCmdPort`
     //                                             ^-- around column 35
-    let pos_ignition = Position { line: 24, character: 35 };
+    let pos_ignition = Position {
+        line: 24,
+        character: 35,
+    };
     println!("\n=== Test: Hover on IgnitionCmd at line 24 ===");
     let hover_ignition = server.get_hover(&uri, pos_ignition);
     println!("Hover on IgnitionCmd: {:?}", hover_ignition);
@@ -3695,7 +3894,10 @@ fn test_hover_in_state_and_transition() {
     // Test hover on IgnitionOnOff::on in guard
     // Line 25: `                    if ignitionCmd.ignitionOnOff==IgnitionOnOff::on`
     //                                                              ^-- around column 52
-    let pos_enum = Position { line: 25, character: 52 };
+    let pos_enum = Position {
+        line: 25,
+        character: 52,
+    };
     println!("\n=== Test: Hover on IgnitionOnOff at line 25 ===");
     let hover_enum = server.get_hover(&uri, pos_enum);
     println!("Hover on IgnitionOnOff: {:?}", hover_enum);
@@ -3735,20 +3937,29 @@ fn test_hover_derivation_connection_references() {
     // Debug: print all symbols
     println!("\n=== All symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
+        println!(
+            "  {} (line {}-{})",
+            sym.qualified_name, sym.start_line, sym.end_line
+        );
     }
 
     // Debug: print all references
     println!("\n=== All references ===");
     let refs = server.references_in_file("/test.sysml");
     for r in &refs {
-        println!("  target={} at line {}, col {}-{}", r.target, r.start_line, r.start_col, r.end_col);
+        println!(
+            "  target={} at line {}, col {}-{}",
+            r.target, r.start_line, r.start_col, r.end_col
+        );
     }
 
     // Test hover on 'vehicleSpecification' in ::> reference
     // Line 12: `        end #original ::> vehicleSpecification.vehicleMassRequirement;`
     //                                     ^-- around column 26
-    let pos_vehicle_spec = Position { line: 12, character: 26 };
+    let pos_vehicle_spec = Position {
+        line: 12,
+        character: 26,
+    };
     println!("\n=== Test: Hover on vehicleSpecification at line 12 ===");
     let hover_vehicle = server.get_hover(&uri, pos_vehicle_spec);
     println!("Hover on vehicleSpecification: {:?}", hover_vehicle);
@@ -3760,7 +3971,10 @@ fn test_hover_derivation_connection_references() {
     // Test hover on 'vehicleMassRequirement' (the chained part)
     // Line 12: `        end #original ::> vehicleSpecification.vehicleMassRequirement;`
     //                                                         ^-- around column 47
-    let pos_mass_req = Position { line: 12, character: 47 };
+    let pos_mass_req = Position {
+        line: 12,
+        character: 47,
+    };
     println!("\n=== Test: Hover on vehicleMassRequirement at line 12 ===");
     let hover_mass = server.get_hover(&uri, pos_mass_req);
     println!("Hover on vehicleMassRequirement: {:?}", hover_mass);
@@ -3772,7 +3986,10 @@ fn test_hover_derivation_connection_references() {
     // Test hover on 'engineSpecification' in second ::> reference
     // Line 13: `        end #derive ::> engineSpecification.engineMassRequirement;`
     //                                  ^-- around column 24
-    let pos_engine_spec = Position { line: 13, character: 24 };
+    let pos_engine_spec = Position {
+        line: 13,
+        character: 24,
+    };
     println!("\n=== Test: Hover on engineSpecification at line 13 ===");
     let hover_engine = server.get_hover(&uri, pos_engine_spec);
     println!("Hover on engineSpecification: {:?}", hover_engine);
@@ -3810,12 +4027,17 @@ fn test_hover_attribute_redefines_with_value() {
     // Line 11: "        attribute peakHorsePower redefines peakHorsePower = 240;"
     //                                                      ^--- peakHorsePower at col 46
 
-    server.open_document(&uri, source).expect("Should parse document");
+    server
+        .open_document(&uri, source)
+        .expect("Should parse document");
 
     // Debug: Print all symbols
     println!("\n=== All Symbols ===");
     for sym in server.all_symbols() {
-        println!("  {} (line {}-{})", sym.qualified_name, sym.start_line, sym.end_line);
+        println!(
+            "  {} (line {}-{})",
+            sym.qualified_name, sym.start_line, sym.end_line
+        );
     }
 
     // Debug: Print all references with targets
@@ -3823,14 +4045,19 @@ fn test_hover_attribute_redefines_with_value() {
     let all_refs = server.all_references();
     for target in server.all_reference_targets() {
         for r in all_refs.iter().filter(|r| r.target == target) {
-            println!("  line={} col={}-{} target={}", 
-                r.start_line, r.start_col, r.end_col, target);
+            println!(
+                "  line={} col={}-{} target={}",
+                r.start_line, r.start_col, r.end_col, target
+            );
         }
     }
 
     // Test hover on 'mass' in 'redefines mass'
     // Line 10 (0-indexed): "        attribute mass redefines mass = 180;"
-    let pos_mass = Position { line: 10, character: 34 };
+    let pos_mass = Position {
+        line: 10,
+        character: 34,
+    };
     println!("\n=== Test: Hover on 'mass' at line 10 col 34 ===");
     let hover_mass = server.get_hover(&uri, pos_mass);
     println!("Hover result: {:?}", hover_mass);
@@ -3841,7 +4068,10 @@ fn test_hover_attribute_redefines_with_value() {
 
     // Test hover on 'peakHorsePower' in 'redefines peakHorsePower'
     // Line 11 (0-indexed): "        attribute peakHorsePower redefines peakHorsePower = 240;"
-    let pos_php = Position { line: 11, character: 46 };
+    let pos_php = Position {
+        line: 11,
+        character: 46,
+    };
     println!("\n=== Test: Hover on 'peakHorsePower' at line 11 col 46 ===");
     let hover_php = server.get_hover(&uri, pos_php);
     println!("Hover result: {:?}", hover_php);
