@@ -1,20 +1,13 @@
 use super::LspServer;
 use super::helpers::{decode_uri_component, uri_to_path};
 use async_lsp::lsp_types::{Hover, HoverContents, MarkedString, Position, Range, Url};
-use tracing::debug;
 
 impl LspServer {
     /// Get hover information for a symbol at the given position
     ///
     /// Uses the new HIR-based IDE layer for hover content generation.
     pub fn get_hover(&mut self, uri: &Url, position: Position) -> Option<Hover> {
-        debug!(
-            "[HOVER] get_hover called for uri={}, position={}:{}",
-            uri, position.line, position.character
-        );
-
         let path = uri_to_path(uri)?;
-        debug!("[HOVER] path={:?}", path);
 
         let path_str = path.to_string_lossy();
         let analysis = self.analysis_host.analysis();
@@ -24,8 +17,6 @@ impl LspServer {
 
         // Use the Analysis hover method
         let result = analysis.hover(file_id, position.line, position.character)?;
-
-        debug!("[HOVER] Found symbol, building hover content");
 
         // Get the qualified name from the result to find references
         let mut contents = result.contents.clone();

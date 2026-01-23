@@ -3346,3 +3346,234 @@ fn test_workspace_symbols_query() {
         "All results should match the query"
     );
 }
+
+#[test]
+fn test_semantic_tokens_exact_positions() {
+    // Test that semantic tokens have exact correct positions for packages
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let text = "package VehicleIndividuals {\n\tpackage IndividualDefinitions {\n\t}\n}";
+
+    server.open_document(&uri, text).unwrap();
+
+    let async_lsp::lsp_types::SemanticTokensResult::Tokens(tokens) =
+        server.get_semantic_tokens(&uri).unwrap()
+    else {
+        panic!("Expected SemanticTokens result");
+    };
+
+    // Decode delta-encoded tokens
+    #[derive(Debug)]
+    struct DecodedToken {
+        line: u32,
+        col: u32,
+        length: u32,
+        token_type: u32,
+    }
+
+    let mut decoded = Vec::new();
+    let mut current_line = 0u32;
+    let mut current_col = 0u32;
+
+    for tok in &tokens.data {
+        current_line += tok.delta_line;
+        if tok.delta_line > 0 {
+            current_col = tok.delta_start;
+        } else {
+            current_col += tok.delta_start;
+        }
+        decoded.push(DecodedToken {
+            line: current_line,
+            col: current_col,
+            length: tok.length,
+            token_type: tok.token_type,
+        });
+    }
+
+    println!("Decoded tokens:");
+    for (i, tok) in decoded.iter().enumerate() {
+        println!("  Token {}: line={} col={} len={} type={}", 
+            i, tok.line, tok.col, tok.length, tok.token_type);
+    }
+
+    // Should have 2 namespace tokens (one for each package)
+    let namespace_tokens: Vec<_> = decoded.iter().filter(|t| t.token_type == 0).collect();
+    assert_eq!(namespace_tokens.len(), 2, "Should have 2 namespace tokens");
+
+    // First package: "VehicleIndividuals" at line 0, col 8
+    // "package VehicleIndividuals" - "package " = 8 chars
+    let pkg1 = &namespace_tokens[0];
+    assert_eq!(pkg1.line, 0, "First package should be on line 0");
+    assert_eq!(pkg1.col, 8, "VehicleIndividuals should start at col 8");
+    assert_eq!(pkg1.length, 18, "VehicleIndividuals has 18 chars");
+
+    // Second package: "IndividualDefinitions" at line 1
+    // "\tpackage IndividualDefinitions" - tab=1, "package "=8, so col=9
+    let pkg2 = &namespace_tokens[1];
+    assert_eq!(pkg2.line, 1, "Second package should be on line 1");
+    assert_eq!(pkg2.col, 9, "IndividualDefinitions should start at col 9");
+    assert_eq!(pkg2.length, 21, "IndividualDefinitions has 21 chars");
+}
+
+#[test]
+fn test_semantic_tokens_stdlib_package_position() {
+    // Test that stdlib-style packages have correct positions
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    let text = "standard library package Requirements {\n}";
+
+    server.open_document(&uri, text).unwrap();
+
+    let async_lsp::lsp_types::SemanticTokensResult::Tokens(tokens) =
+        server.get_semantic_tokens(&uri).unwrap()
+    else {
+        panic!("Expected SemanticTokens result");
+    };
+
+    // Decode delta-encoded tokens
+    let mut decoded = Vec::new();
+    let mut current_line = 0u32;
+    let mut current_col = 0u32;
+
+    for tok in &tokens.data {
+        current_line += tok.delta_line;
+        if tok.delta_line > 0 {
+            current_col = tok.delta_start;
+        } else {
+            current_col += tok.delta_start;
+        }
+        decoded.push((current_line, current_col, tok.length, tok.token_type));
+    }
+
+    println!("ALL decoded tokens for stdlib-style package:");
+    for (i, (line, col, len, tt)) in decoded.iter().enumerate() {
+        let type_name = match tt {
+            0 => "Namespace",
+            1 => "Type",
+            2 => "Variable",
+            3 => "Property",
+            4 => "Keyword",
+            _ => "Unknown",
+        };
+        println!("  Token {}: line={} col={} len={} type={}", i, line, col, len, type_name);
+    }
+
+    // Check for any token starting at col 0 which could be suspicious
+    let col0_tokens: Vec<_> = decoded.iter().filter(|(_, col, _, _)| *col == 0).collect();
+    if !col0_tokens.is_empty() {
+        println!("WARNING: Found tokens at col 0:");
+        for (line, col, len, tt) in &col0_tokens {
+            println!("  line={} col={} len={} type={}", line, col, len, tt);
+        }
+    }
+
+    // The package name "Requirements" should be at col 25
+    // "standard library package Requirements" = 25 + 12
+    let pkg_token = decoded.iter().find(|(_, _, _, tt)| *tt == 0);
+    assert!(pkg_token.is_some(), "Should have namespace token");
+    let (line, col, len, _) = pkg_token.unwrap();
+    assert_eq!(*line, 0, "Package should be on line 0");
+    assert_eq!(*col, 25, "Requirements should start at col 25 (after 'standard library package ')");
+    assert_eq!(*len, 12, "Requirements has 12 chars");
+
+    // Make sure we don't have any token at position (0, 0) for the whole line
+    assert!(col0_tokens.is_empty(), "Should not have any tokens at column 0");
+}
+
+#[test]
+fn test_semantic_tokens_simple_vehicle_model() {
+    // Test with actual SimpleVehicleModel.sysml content to find problematic tokens
+    let mut server = create_server();
+    let uri = Url::parse("file:///test.sysml").unwrap();
+    
+    // Use the beginning of the actual file
+    let text = r#"package SimpleVehicleModel{
+    // 2023-02 release
+    public import Definitions::*;  
+    public import ISQ::*;
+    package Definitions{
+        public import PartDefinitions::*;
+        package PartDefinitions{
+            part def Vehicle {
+                attribute mass :> ISQ::mass;
+            }
+        }
+    }
+}"#;
+
+    server.open_document(&uri, text).unwrap();
+
+    let async_lsp::lsp_types::SemanticTokensResult::Tokens(tokens) =
+        server.get_semantic_tokens(&uri).unwrap()
+    else {
+        panic!("Expected SemanticTokens result");
+    };
+
+    // Decode delta-encoded tokens
+    let mut decoded = Vec::new();
+    let mut current_line = 0u32;
+    let mut current_col = 0u32;
+
+    for tok in &tokens.data {
+        current_line += tok.delta_line;
+        if tok.delta_line > 0 {
+            current_col = tok.delta_start;
+        } else {
+            current_col += tok.delta_start;
+        }
+        decoded.push((current_line, current_col, tok.length, tok.token_type));
+    }
+
+    println!("ALL semantic tokens for SimpleVehicleModel snippet:");
+    println!("Source text lines:");
+    for (i, line) in text.lines().enumerate() {
+        println!("  Line {}: '{}'", i, line);
+    }
+    println!();
+    println!("Tokens:");
+    for (i, (line, col, len, tt)) in decoded.iter().enumerate() {
+        let type_name = match tt {
+            0 => "Namespace",
+            1 => "Type",
+            2 => "Variable",
+            3 => "Property",
+            4 => "Keyword",
+            _ => "Unknown",
+        };
+        // Get the source line to show what text the token covers
+        let source_line = text.lines().nth(*line as usize).unwrap_or("");
+        let start = *col as usize;
+        let end = (start + *len as usize).min(source_line.len());
+        let covered_text = if start < source_line.len() {
+            &source_line[start..end]
+        } else {
+            "<out of range>"
+        };
+        println!("  Token {}: line={} col={} len={} type={} text='{}'", 
+            i, line, col, len, type_name, covered_text);
+    }
+
+    // Check for tokens at line 0 to see what's covering the first package
+    let line0_tokens: Vec<_> = decoded.iter().filter(|(line, _, _, _)| *line == 0).collect();
+    println!();
+    println!("Tokens on line 0 (first package line):");
+    for (line, col, len, tt) in &line0_tokens {
+        let type_name = match tt {
+            0 => "Namespace",
+            1 => "Type",
+            2 => "Variable",
+            3 => "Property",
+            4 => "Keyword",
+            _ => "Unknown",
+        };
+        println!("  col={} len={} type={}", col, len, type_name);
+    }
+
+    // Verify SimpleVehicleModel token
+    // "package SimpleVehicleModel{" - "package " = 8 chars, "SimpleVehicleModel" = 18 chars
+    let pkg_token = line0_tokens.iter().find(|(_, _, _, tt)| *tt == 0);
+    assert!(pkg_token.is_some(), "Should have Namespace token on line 0");
+    let (_, col, len, _) = pkg_token.unwrap();
+    assert_eq!(*col, 8, "SimpleVehicleModel should start at col 8");
+    assert_eq!(*len, 18, "SimpleVehicleModel has 18 chars");
+}
