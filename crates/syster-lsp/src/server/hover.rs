@@ -91,20 +91,20 @@ impl LspServer {
         result.push_str(&format!("\n**Referenced by:** ({count} usage{plural})\n"));
 
         for (file_id, line, col) in references {
-            if let Some(path) = analysis.get_file_path(file_id) {
-                if let Ok(uri) = Url::from_file_path(path) {
-                    let file_name = std::path::Path::new(path)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("unknown");
-                    let decoded_file_name = decode_uri_component(file_name);
-                    let display_line = line + 1; // 1-indexed for display
-                    let display_col = col + 1;
-                    result.push_str(&format!(
-                        "- [{decoded_file_name}:{display_line}:{display_col}]({}#L{display_line})\n",
-                        uri
-                    ));
-                }
+            if let Some(path) = analysis.get_file_path(file_id)
+                && let Ok(uri) = Url::from_file_path(path)
+            {
+                let file_name = std::path::Path::new(path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+                let decoded_file_name = decode_uri_component(file_name);
+                let display_line = line + 1; // 1-indexed for display
+                let display_col = col + 1;
+                result.push_str(&format!(
+                    "- [{decoded_file_name}:{display_line}:{display_col}]({}#L{display_line})\n",
+                    uri
+                ));
             }
         }
 

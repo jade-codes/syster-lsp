@@ -3392,8 +3392,10 @@ fn test_semantic_tokens_exact_positions() {
 
     println!("Decoded tokens:");
     for (i, tok) in decoded.iter().enumerate() {
-        println!("  Token {}: line={} col={} len={} type={}", 
-            i, tok.line, tok.col, tok.length, tok.token_type);
+        println!(
+            "  Token {}: line={} col={} len={} type={}",
+            i, tok.line, tok.col, tok.length, tok.token_type
+        );
     }
 
     // Should have 2 namespace tokens (one for each package)
@@ -3455,7 +3457,10 @@ fn test_semantic_tokens_stdlib_package_position() {
             4 => "Keyword",
             _ => "Unknown",
         };
-        println!("  Token {}: line={} col={} len={} type={}", i, line, col, len, type_name);
+        println!(
+            "  Token {}: line={} col={} len={} type={}",
+            i, line, col, len, type_name
+        );
     }
 
     // Check for any token starting at col 0 which could be suspicious
@@ -3473,11 +3478,17 @@ fn test_semantic_tokens_stdlib_package_position() {
     assert!(pkg_token.is_some(), "Should have namespace token");
     let (line, col, len, _) = pkg_token.unwrap();
     assert_eq!(*line, 0, "Package should be on line 0");
-    assert_eq!(*col, 25, "Requirements should start at col 25 (after 'standard library package ')");
+    assert_eq!(
+        *col, 25,
+        "Requirements should start at col 25 (after 'standard library package ')"
+    );
     assert_eq!(*len, 12, "Requirements has 12 chars");
 
     // Make sure we don't have any token at position (0, 0) for the whole line
-    assert!(col0_tokens.is_empty(), "Should not have any tokens at column 0");
+    assert!(
+        col0_tokens.is_empty(),
+        "Should not have any tokens at column 0"
+    );
 }
 
 #[test]
@@ -3485,7 +3496,7 @@ fn test_semantic_tokens_simple_vehicle_model() {
     // Test with actual SimpleVehicleModel.sysml content to find problematic tokens
     let mut server = create_server();
     let uri = Url::parse("file:///test.sysml").unwrap();
-    
+
     // Use the beginning of the actual file
     let text = r#"package SimpleVehicleModel{
     // 2023-02 release
@@ -3549,15 +3560,20 @@ fn test_semantic_tokens_simple_vehicle_model() {
         } else {
             "<out of range>"
         };
-        println!("  Token {}: line={} col={} len={} type={} text='{}'", 
-            i, line, col, len, type_name, covered_text);
+        println!(
+            "  Token {}: line={} col={} len={} type={} text='{}'",
+            i, line, col, len, type_name, covered_text
+        );
     }
 
     // Check for tokens at line 0 to see what's covering the first package
-    let line0_tokens: Vec<_> = decoded.iter().filter(|(line, _, _, _)| *line == 0).collect();
+    let line0_tokens: Vec<_> = decoded
+        .iter()
+        .filter(|(line, _, _, _)| *line == 0)
+        .collect();
     println!();
     println!("Tokens on line 0 (first package line):");
-    for (line, col, len, tt) in &line0_tokens {
+    for (_line, col, len, tt) in &line0_tokens {
         let type_name = match tt {
             0 => "Namespace",
             1 => "Type",

@@ -295,7 +295,7 @@ fn test_vehicle_example_semantic_tokens() {
 
     // Get semantic tokens
     let tokens_result = server.get_semantic_tokens(&uri);
-    
+
     let tokens = match tokens_result {
         Some(async_lsp::lsp_types::SemanticTokensResult::Tokens(t)) => t,
         _ => panic!("Expected SemanticTokens result"),
@@ -337,15 +337,15 @@ fn test_vehicle_example_semantic_tokens() {
         } else {
             "<out of range>"
         };
-        println!("  Line {:3} col {:3} len {:3} {:10} '{}'", 
-            line, col, len, type_name, covered_text);
+        println!(
+            "  Line {:3} col {:3} len {:3} {:10} '{}'",
+            line, col, len, type_name, covered_text
+        );
     }
 
     // Check for any suspicious tokens at column 0
-    let col0_tokens: Vec<_> = decoded.iter()
-        .filter(|(_, col, _, _)| *col == 0)
-        .collect();
-    
+    let col0_tokens: Vec<_> = decoded.iter().filter(|(_, col, _, _)| *col == 0).collect();
+
     if !col0_tokens.is_empty() {
         println!("\n{}", "=".repeat(80));
         println!("WARNING: Found {} tokens at column 0:", col0_tokens.len());
@@ -360,8 +360,14 @@ fn test_vehicle_example_semantic_tokens() {
                 _ => "Unknown",
             };
             let source_line = lines.get(*line as usize).unwrap_or(&"");
-            println!("  Line {:3} col {:3} len {:3} {:10} line='{}'", 
-                line, col, len, type_name, source_line.chars().take(60).collect::<String>());
+            println!(
+                "  Line {:3} col {:3} len {:3} {:10} line='{}'",
+                line,
+                col,
+                len,
+                type_name,
+                source_line.chars().take(60).collect::<String>()
+            );
         }
     }
 
@@ -369,11 +375,9 @@ fn test_vehicle_example_semantic_tokens() {
     println!("\n{}", "=".repeat(80));
     println!("PACKAGE TOKENS (Namespace type):");
     println!("{}", "=".repeat(80));
-    
-    let namespace_tokens: Vec<_> = decoded.iter()
-        .filter(|(_, _, _, tt)| *tt == 0)
-        .collect();
-    
+
+    let namespace_tokens: Vec<_> = decoded.iter().filter(|(_, _, _, tt)| *tt == 0).collect();
+
     for (line, col, len, _) in namespace_tokens.iter().take(20) {
         let source_line = lines.get(*line as usize).unwrap_or(&"");
         let start = *col as usize;
@@ -383,7 +387,10 @@ fn test_vehicle_example_semantic_tokens() {
         } else {
             "<out of range>"
         };
-        println!("  Line {:3} col {:3} len {:3} '{}'", line, col, len, covered_text);
+        println!(
+            "  Line {:3} col {:3} len {:3} '{}'",
+            line, col, len, covered_text
+        );
     }
 
     println!("\n{}", "=".repeat(80));
@@ -393,14 +400,19 @@ fn test_vehicle_example_semantic_tokens() {
     // The first token should be for "SimpleVehicleModel" package
     // Line 0: "package SimpleVehicleModel{"
     // "package " = 8 chars, so the name starts at col 8
-    let line0_tokens: Vec<_> = decoded.iter()
-        .filter(|(l, _, _, _)| *l == 0)
-        .collect();
-    
-    assert!(!line0_tokens.is_empty(), "Should have at least one token on line 0");
-    
+    let line0_tokens: Vec<_> = decoded.iter().filter(|(l, _, _, _)| *l == 0).collect();
+
+    assert!(
+        !line0_tokens.is_empty(),
+        "Should have at least one token on line 0"
+    );
+
     let (_, col, len, tt) = line0_tokens[0];
     assert_eq!(*tt, 0, "First token should be Namespace type");
-    assert_eq!(*col, 8, "SimpleVehicleModel should start at col 8, got {}", col);
+    assert_eq!(
+        *col, 8,
+        "SimpleVehicleModel should start at col 8, got {}",
+        col
+    );
     assert_eq!(*len, 18, "SimpleVehicleModel has 18 chars, got {}", len);
 }

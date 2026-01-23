@@ -1862,11 +1862,11 @@ fn test_hover_isq_massvalue() {
 
     println!("Hover result: {:?}", hover_result.is_some());
 
-    if let Some(hover) = &hover_result {
-        if let HoverContents::Scalar(MarkedString::String(content)) = &hover.contents {
-            println!("=== HOVER CONTENT ===");
-            println!("{content}");
-        }
+    if let Some(hover) = &hover_result
+        && let HoverContents::Scalar(MarkedString::String(content)) = &hover.contents
+    {
+        println!("=== HOVER CONTENT ===");
+        println!("{content}");
     }
 
     assert!(

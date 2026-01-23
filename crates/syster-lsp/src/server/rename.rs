@@ -72,23 +72,23 @@ impl LspServer {
         let mut edits_by_file: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
         for reference in result.references {
-            if let Some(ref_path) = analysis.get_file_path(reference.file) {
-                if let Ok(file_uri) = Url::from_file_path(ref_path) {
-                    let range = Range {
-                        start: Position {
-                            line: reference.start_line,
-                            character: reference.start_col,
-                        },
-                        end: Position {
-                            line: reference.end_line,
-                            character: reference.end_col,
-                        },
-                    };
-                    edits_by_file.entry(file_uri).or_default().push(TextEdit {
-                        range,
-                        new_text: new_name.to_string(),
-                    });
-                }
+            if let Some(ref_path) = analysis.get_file_path(reference.file)
+                && let Ok(file_uri) = Url::from_file_path(ref_path)
+            {
+                let range = Range {
+                    start: Position {
+                        line: reference.start_line,
+                        character: reference.start_col,
+                    },
+                    end: Position {
+                        line: reference.end_line,
+                        character: reference.end_col,
+                    },
+                };
+                edits_by_file.entry(file_uri).or_default().push(TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                });
             }
         }
 

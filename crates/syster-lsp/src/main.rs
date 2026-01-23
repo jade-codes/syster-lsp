@@ -55,12 +55,11 @@ impl LanguageServer for ServerState {
 
         // Fall back to root_uri (single folder workspace, deprecated but still used)
         #[allow(deprecated)]
-        if folders.is_empty() {
-            if let Some(root_uri) = params.root_uri {
-                if let Ok(path) = root_uri.to_file_path() {
-                    folders.push(path);
-                }
-            }
+        if folders.is_empty()
+            && let Some(root_uri) = params.root_uri
+            && let Ok(path) = root_uri.to_file_path()
+        {
+            folders.push(path);
         }
 
         self.server.set_workspace_folders(folders);

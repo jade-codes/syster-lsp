@@ -214,10 +214,10 @@ impl LspServer {
     fn sync_document_texts_from_files(&mut self) {
         for path in self.analysis_host.files().keys() {
             // Only load if not already tracked (avoid overwriting editor versions)
-            if !self.document_texts.contains_key(path) {
-                if let Ok(text) = std::fs::read_to_string(path) {
-                    self.document_texts.insert(path.clone(), text);
-                }
+            if !self.document_texts.contains_key(path)
+                && let Ok(text) = std::fs::read_to_string(path)
+            {
+                self.document_texts.insert(path.clone(), text);
             }
         }
     }
