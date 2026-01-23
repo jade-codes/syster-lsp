@@ -178,6 +178,30 @@ impl LanguageServer for ServerState {
         ))
     }
 
+    fn range_formatting(
+        &mut self,
+        params: DocumentRangeFormattingParams,
+    ) -> BoxFuture<'static, Result<Option<Vec<TextEdit>>, Self::Error>> {
+        let uri = params.text_document.uri;
+        let options = params.options;
+        let range = params.range;
+
+        let text_snapshot = self.server.get_document_text(&uri);
+
+        let cancel_token = uri
+            .to_file_path()
+            .ok()
+            .and_then(|path| self.server.get_document_cancel_token(&path))
+            .unwrap_or_default();
+
+        Box::pin(server::formatting::format_range_document(
+            text_snapshot,
+            options,
+            cancel_token,
+            range,
+        ))
+    }
+
     fn prepare_rename(
         &mut self,
         params: TextDocumentPositionParams,

@@ -131,6 +131,7 @@ async fn test_initialize_capabilities() {
     assert!(caps.document_symbol_provider.is_some());
     assert!(caps.rename_provider.is_some());
     assert!(caps.document_formatting_provider.is_some());
+    assert!(caps.document_range_formatting_provider.is_some());
     assert!(caps.completion_provider.is_some());
     assert!(caps.folding_range_provider.is_some());
     assert!(caps.selection_range_provider.is_some());
