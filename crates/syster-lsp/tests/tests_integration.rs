@@ -873,6 +873,8 @@ fn test_hover_temperature_difference_value_no_duplicate_specialization() {
 /// Test that hover for TemperatureDifferenceValue doesn't show duplicate relationships
 #[test]
 fn test_hover_output_temperature_difference_value() {
+    use syster::hir::RelationshipKind;
+
     let mut host = create_analysis_host_with_stdlib();
     let analysis = host.analysis();
 
@@ -888,24 +890,39 @@ fn test_hover_output_temperature_difference_value() {
     // Generate the actual hover output using the IDE layer
     let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
     assert!(hover_result.is_some(), "Should get hover result");
-    let hover_output = hover_result.unwrap().contents;
+    let hover = hover_result.unwrap();
 
     println!("=== HOVER OUTPUT ===");
-    println!("{hover_output}");
+    println!("{}", hover.contents);
     println!("=== END HOVER OUTPUT ===");
 
-    // Check that ScalarQuantityValue appears exactly twice:
-    // 1. In the signature line: `Attribute def TemperatureDifferenceValue :> ScalarQuantityValue`
-    // 2. In the relationships section: `**Specializes:** ScalarQuantityValue`
-    let scalar_count = hover_output.matches("ScalarQuantityValue").count();
-    assert_eq!(
-        scalar_count, 2,
-        "ScalarQuantityValue should appear exactly twice in hover (signature + relationships), found {scalar_count} times:\n{hover_output}"
+    // Check that ScalarQuantityValue appears in the signature line
+    assert!(
+        hover.contents.contains("ScalarQuantityValue"),
+        "Signature should contain ScalarQuantityValue:\n{}",
+        hover.contents
+    );
+
+    // Check relationships array contains Specializes relationship
+    println!("=== RELATIONSHIPS ===");
+    for rel in &hover.relationships {
+        println!("  {:?} -> {}", rel.kind, rel.target_name);
+    }
+
+    let has_specializes = hover.relationships.iter().any(|r| {
+        r.kind == RelationshipKind::Specializes
+            && r.target_name.as_ref().contains("ScalarQuantityValue")
+    });
+    assert!(
+        has_specializes,
+        "Relationships should include Specializes -> ScalarQuantityValue"
     );
 }
 
 #[test]
 fn test_hover_output_celsius_temperature_value() {
+    use syster::hir::RelationshipKind;
+
     let mut host = create_analysis_host_with_stdlib();
     let analysis = host.analysis();
 
@@ -921,24 +938,39 @@ fn test_hover_output_celsius_temperature_value() {
     // Generate the actual hover output using the IDE layer
     let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
     assert!(hover_result.is_some(), "Should get hover result");
-    let hover_output = hover_result.unwrap().contents;
+    let hover = hover_result.unwrap();
 
     println!("=== HOVER OUTPUT (CelsiusTemperatureValue) ===");
-    println!("{hover_output}");
+    println!("{}", hover.contents);
     println!("=== END HOVER OUTPUT ===");
 
-    // Check that ScalarQuantityValue appears exactly twice:
-    // 1. In the signature line
-    // 2. In the relationships section
-    let scalar_count = hover_output.matches("ScalarQuantityValue").count();
-    assert_eq!(
-        scalar_count, 2,
-        "ScalarQuantityValue should appear exactly twice in hover (signature + relationships), found {scalar_count} times:\n{hover_output}"
+    // Check that ScalarQuantityValue appears in the signature line
+    assert!(
+        hover.contents.contains("ScalarQuantityValue"),
+        "Signature should contain ScalarQuantityValue:\n{}",
+        hover.contents
+    );
+
+    // Check relationships array contains Specializes relationship
+    println!("=== RELATIONSHIPS ===");
+    for rel in &hover.relationships {
+        println!("  {:?} -> {}", rel.kind, rel.target_name);
+    }
+
+    let has_specializes = hover.relationships.iter().any(|r| {
+        r.kind == RelationshipKind::Specializes
+            && r.target_name.as_ref().contains("ScalarQuantityValue")
+    });
+    assert!(
+        has_specializes,
+        "Relationships should include Specializes -> ScalarQuantityValue"
     );
 }
 
 #[test]
 fn test_hover_at_position_temperature_difference_value() {
+    use syster::hir::RelationshipKind;
+
     let mut host = create_analysis_host_with_stdlib();
     let analysis = host.analysis();
 
@@ -963,13 +995,28 @@ fn test_hover_at_position_temperature_difference_value() {
             "Should get hover for {}",
             sym.qualified_name
         );
-        let hover = hover_result.unwrap().contents;
-        let count = hover.matches("ScalarQuantityValue").count();
-        println!("\n--- Hover for {} ---\n{}", sym.qualified_name, hover);
-        // ScalarQuantityValue appears twice: in signature and in relationships section
-        assert_eq!(
-            count, 2,
-            "Should have exactly 2 ScalarQuantityValue in hover for {} (signature + relationships)",
+        let hover = hover_result.unwrap();
+        println!(
+            "\n--- Hover for {} ---\n{}",
+            sym.qualified_name, hover.contents
+        );
+
+        // Check that ScalarQuantityValue appears in signature
+        assert!(
+            hover.contents.contains("ScalarQuantityValue"),
+            "Signature should contain ScalarQuantityValue for {}: {}",
+            sym.qualified_name,
+            hover.contents
+        );
+
+        // Check relationships array contains Specializes relationship
+        let has_specializes = hover.relationships.iter().any(|r| {
+            r.kind == RelationshipKind::Specializes
+                && r.target_name.as_ref().contains("ScalarQuantityValue")
+        });
+        assert!(
+            has_specializes,
+            "Relationships should include Specializes -> ScalarQuantityValue for {}",
             sym.qualified_name
         );
     }

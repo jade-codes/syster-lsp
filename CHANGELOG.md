@@ -5,6 +5,29 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1-alpha] - 2026-01-24
+
+### Added
+
+- **Type Definition Navigation** (`textDocument/typeDefinition`):
+  - Navigate from usages directly to their type definitions
+  - Works for typed features, parameters, and attributes
+  - Standard LSP feature for "Go to Type Definition" command
+
+- **Clickable Relationships in Hover**:
+  - Relationships now render as markdown links in hover popups
+  - Click to navigate directly to specialization targets, type definitions, etc.
+  - Uses `MarkupContent` with `MarkupKind::Markdown` for proper link rendering
+
+- **Range Formatting** (`textDocument/rangeFormatting`):
+  - Format selected code ranges instead of entire documents
+  - Supports standard LSP range formatting requests
+
+### Changed
+
+- **Hover Content Type**: Changed from `MarkedString::String` to `MarkupContent` with `MarkupKind::Markdown` to enable clickable links
+- **syster-base**: Updated to v0.2.1-alpha with `ResolvedRelationship` and `goto_type_definition` support
+
 ## [0.2.0-alpha] - 2026-01-23
 
 ### 🚀 Major Update — Salsa-powered Incremental Analysis

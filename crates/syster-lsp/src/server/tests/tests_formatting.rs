@@ -150,9 +150,7 @@ fn test_lsp_range_format_normalizes_whitespace() {
     let edits = result.unwrap();
     assert_eq!(edits.len(), 1, "Should have one edit");
     assert!(
-        edits[0]
-            .new_text
-            .contains("metadata def ToolVariable"),
+        edits[0].new_text.contains("metadata def ToolVariable"),
         "Range format should normalize whitespace. Got: |{}|",
         edits[0].new_text
     );
