@@ -1,0 +1,3 @@
+# Override syster-base to use local path for development
+[patch.crates-io]
+syster-base = { path = "../syster-base" }

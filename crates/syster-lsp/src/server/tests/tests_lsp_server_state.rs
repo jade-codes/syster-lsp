@@ -397,8 +397,12 @@ async fn test_hover_basic() {
     assert!(result.is_some(), "Should return hover info");
 
     let hover = result.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
 
     eprintln!("Hover content: {}", content);
@@ -431,8 +435,12 @@ part car : Vehicle;
     assert!(result.is_some(), "Should return hover for usage");
 
     let hover = result.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
 
     assert!(content.contains("car"), "Should show usage name");
@@ -460,8 +468,12 @@ part def Derived :> Base;
     assert!(result.is_some(), "Should return hover for derived type");
 
     let hover = result.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
 
     assert!(content.contains("Derived"), "Should show symbol name");
@@ -530,8 +542,12 @@ part def Third;
     assert!(result.is_some(), "Should find symbol on different lines");
 
     let hover = result.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
 
     assert!(content.contains("Second"));

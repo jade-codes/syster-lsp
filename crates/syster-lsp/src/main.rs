@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use async_lsp::client_monitor::ClientProcessMonitorLayer;
 use async_lsp::concurrency::ConcurrencyLayer;
+use async_lsp::lsp_types::request::GotoTypeDefinitionParams;
 use async_lsp::lsp_types::*;
 use async_lsp::panic::CatchUnwindLayer;
 use async_lsp::router::Router;
@@ -19,6 +20,7 @@ use server::LspServer;
 use server::background_tasks::{debounce, events::ParseDocument};
 use server::diagram::GetDiagramRequest;
 use server::helpers::uri_to_path;
+use server::type_info::TypeInfoRequest;
 
 /// Server state that owns the LspServer and client socket
 struct ServerState {
@@ -87,6 +89,19 @@ impl LanguageServer for ServerState {
         let result = self
             .server
             .get_definition(&uri, position)
+            .map(GotoDefinitionResponse::Scalar);
+        Box::pin(async move { Ok(result) })
+    }
+
+    fn type_definition(
+        &mut self,
+        params: GotoTypeDefinitionParams,
+    ) -> BoxFuture<'static, Result<Option<GotoDefinitionResponse>, Self::Error>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+        let result = self
+            .server
+            .get_type_definition(&uri, position)
             .map(GotoDefinitionResponse::Scalar);
         Box::pin(async move { Ok(result) })
     }
@@ -415,6 +430,14 @@ impl ServerState {
                 .and_then(|url| url.to_file_path().ok());
             let view_type = &params.view_type;
             let result = state.server.get_diagram(file_path.as_deref(), view_type);
+            Box::pin(async move { Ok(result) })
+        });
+
+        // Custom request: syster/typeInfo
+        // Returns type information when cursor is on a type reference
+        router.request::<TypeInfoRequest, _>(|state, params| {
+            let uri = Url::parse(&params.uri).ok();
+            let result = uri.and_then(|u| state.server.get_type_info(&u, params.position));
             Box::pin(async move { Ok(result) })
         });
 

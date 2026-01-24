@@ -3,7 +3,8 @@ use crate::server::tests::test_helpers::{
     LspServerTestExt, create_server, create_server_with_stdlib,
 };
 use async_lsp::lsp_types::{
-    DiagnosticSeverity, HoverContents, MarkedString, Position, PrepareRenameResponse, Url,
+    DiagnosticSeverity, HoverContents, MarkupContent, MarkupKind, Position, PrepareRenameResponse,
+    Url,
 };
 
 #[test]
@@ -290,8 +291,12 @@ fn test_hover_on_symbol() {
     assert!(hover.is_some());
 
     let hover = hover.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
     // Specialization target not available without RelationshipGraph
     // Symbol table stores "Part" (capitalized kind)
@@ -378,8 +383,12 @@ fn test_hover_multiline() {
     assert!(hover.is_some());
 
     let hover = hover.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
     assert!(content.contains("Car"));
 }
@@ -405,8 +414,12 @@ part myCar: Car;"#;
     assert!(hover.is_some());
 
     let hover = hover.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
     // Should show the definition
     assert!(content.contains("Part def Car"));
@@ -427,8 +440,12 @@ part myCar: Car;"#;
     assert!(hover.is_some());
 
     let hover = hover.unwrap();
-    let HoverContents::Scalar(MarkedString::String(content)) = hover.contents else {
-        panic!("Expected scalar string content");
+    let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    else {
+        panic!("Expected markup content");
     };
     // Should show the usage - format is "Part myCar" (capitalized kind)
     assert!(content.contains("Part myCar") || content.contains("myCar"));

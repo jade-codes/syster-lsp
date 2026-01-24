@@ -894,11 +894,13 @@ fn test_hover_output_temperature_difference_value() {
     println!("{hover_output}");
     println!("=== END HOVER OUTPUT ===");
 
-    // Check that ScalarQuantityValue only appears once
+    // Check that ScalarQuantityValue appears exactly twice:
+    // 1. In the signature line: `Attribute def TemperatureDifferenceValue :> ScalarQuantityValue`
+    // 2. In the relationships section: `**Specializes:** ScalarQuantityValue`
     let scalar_count = hover_output.matches("ScalarQuantityValue").count();
     assert_eq!(
-        scalar_count, 1,
-        "ScalarQuantityValue should appear exactly once in hover, found {scalar_count} times:\n{hover_output}"
+        scalar_count, 2,
+        "ScalarQuantityValue should appear exactly twice in hover (signature + relationships), found {scalar_count} times:\n{hover_output}"
     );
 }
 
@@ -925,11 +927,13 @@ fn test_hover_output_celsius_temperature_value() {
     println!("{hover_output}");
     println!("=== END HOVER OUTPUT ===");
 
-    // Check that ScalarQuantityValue only appears once
+    // Check that ScalarQuantityValue appears exactly twice:
+    // 1. In the signature line
+    // 2. In the relationships section
     let scalar_count = hover_output.matches("ScalarQuantityValue").count();
     assert_eq!(
-        scalar_count, 1,
-        "ScalarQuantityValue should appear exactly once in hover, found {scalar_count} times:\n{hover_output}"
+        scalar_count, 2,
+        "ScalarQuantityValue should appear exactly twice in hover (signature + relationships), found {scalar_count} times:\n{hover_output}"
     );
 }
 
@@ -962,9 +966,10 @@ fn test_hover_at_position_temperature_difference_value() {
         let hover = hover_result.unwrap().contents;
         let count = hover.matches("ScalarQuantityValue").count();
         println!("\n--- Hover for {} ---\n{}", sym.qualified_name, hover);
+        // ScalarQuantityValue appears twice: in signature and in relationships section
         assert_eq!(
-            count, 1,
-            "Should have exactly 1 ScalarQuantityValue in hover for {}",
+            count, 2,
+            "Should have exactly 2 ScalarQuantityValue in hover for {} (signature + relationships)",
             sym.qualified_name
         );
     }
@@ -972,7 +977,7 @@ fn test_hover_at_position_temperature_difference_value() {
 
 #[test]
 fn test_lsp_hover_isq_temperature_difference_value() {
-    use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
+    use async_lsp::lsp_types::{HoverContents, MarkupContent, MarkupKind, Position, Url};
 
     // Create server with stdlib
     let mut server = create_server_with_stdlib();
@@ -1021,16 +1026,20 @@ fn test_lsp_hover_isq_temperature_difference_value() {
     assert!(hover_result.is_some(), "Should get hover result");
     let hover = hover_result.unwrap();
 
-    if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+    if let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    {
         println!("=== LSP HOVER OUTPUT ===");
         println!("{content}");
         println!("=== END LSP HOVER OUTPUT ===");
 
-        // Check that ScalarQuantityValue only appears once
+        // Check that ScalarQuantityValue appears exactly twice (signature + relationships)
         let scalar_count = content.matches("ScalarQuantityValue").count();
         assert_eq!(
-            scalar_count, 1,
-            "ScalarQuantityValue should appear exactly once in hover, found {scalar_count} times:\n{content}"
+            scalar_count, 2,
+            "ScalarQuantityValue should appear exactly twice in hover (signature + relationships), found {scalar_count} times:\n{content}"
         );
     } else {
         panic!("Hover content should be a string");
@@ -1045,7 +1054,7 @@ fn test_lsp_hover_isq_temperature_difference_value() {
 /// This replicates the exact production flow.
 #[test]
 fn test_lsp_hover_with_auto_discovered_stdlib() {
-    use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
+    use async_lsp::lsp_types::{HoverContents, MarkupContent, MarkupKind, Position, Url};
     use syster_lsp::LspServer;
 
     // Use the target/release/sysml.library path like production
@@ -1130,16 +1139,20 @@ fn test_lsp_hover_with_auto_discovered_stdlib() {
     assert!(hover_result.is_some(), "Should get hover result");
     let hover = hover_result.unwrap();
 
-    if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+    if let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    {
         println!("=== LSP HOVER OUTPUT (auto-discovered stdlib) ===");
         println!("{content}");
         println!("=== END LSP HOVER OUTPUT ===");
 
-        // Check that ScalarQuantityValue only appears once
+        // Check that ScalarQuantityValue appears exactly twice (signature + relationships)
         let scalar_count = content.matches("ScalarQuantityValue").count();
         assert_eq!(
-            scalar_count, 1,
-            "ScalarQuantityValue should appear exactly once in hover, found {scalar_count} times:\n{content}"
+            scalar_count, 2,
+            "ScalarQuantityValue should appear exactly twice in hover (signature + relationships), found {scalar_count} times:\n{content}"
         );
     } else {
         panic!("Hover content should be a string");
@@ -1156,7 +1169,7 @@ fn test_hover_no_duplicates_after_file_update() {
     // This test replicates the issue by updating a file multiple times
     // and checking the hover output for duplicates.
     use async_lsp::lsp_types::{
-        HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
+        HoverContents, MarkupContent, MarkupKind, Position, TextDocumentContentChangeEvent, Url,
     };
 
     let mut server = LspServer::with_config(false, None);
@@ -1193,7 +1206,11 @@ fn test_hover_no_duplicates_after_file_update() {
         );
 
         let hover = hover_result.unwrap();
-        if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+        if let HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: content,
+        }) = hover.contents
+        {
             println!("=== HOVER OUTPUT (iteration {iteration}) ===");
             println!("{content}");
             println!("=== END ===\n");
@@ -1260,7 +1277,7 @@ fn test_hover_no_duplicates_after_file_update() {
 fn test_hover_referenced_by_count_stable_after_updates() {
     // Test that the "Referenced by: (N usages)" count stays stable after updates
     use async_lsp::lsp_types::{
-        HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
+        HoverContents, MarkupContent, MarkupKind, Position, TextDocumentContentChangeEvent, Url,
     };
 
     let mut server = LspServer::with_config(false, None);
@@ -1291,7 +1308,11 @@ fn test_hover_referenced_by_count_stable_after_updates() {
         };
 
         let hover = server.get_hover(&uri, position)?;
-        if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+        if let HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: content,
+        }) = hover.contents
+        {
             // Extract count from "Referenced by: (N usages)" without regex
             // Look for pattern like "(5 usages)" or "(1 usage)"
             if let Some(start) = content.find("Referenced by:") {
@@ -1347,7 +1368,7 @@ fn test_hover_no_duplicates_with_stdlib_after_updates() {
     // Test with stdlib loaded - this is closer to real usage
     // The issue might be with cross-file references to stdlib symbols
     use async_lsp::lsp_types::{
-        HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
+        HoverContents, MarkupContent, MarkupKind, Position, TextDocumentContentChangeEvent, Url,
     };
 
     let stdlib_path = stdlib_path();
@@ -1386,7 +1407,11 @@ part cal : Calculator;
         };
 
         let hover = server.get_hover(&uri, position)?;
-        if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+        if let HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: content,
+        }) = hover.contents
+        {
             Some(content)
         } else {
             None
@@ -1438,7 +1463,7 @@ part cal : Calculator;
 #[test]
 fn test_hover_import_references_cleared_when_import_removed() {
     use async_lsp::lsp_types::{
-        HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
+        HoverContents, MarkupContent, MarkupKind, Position, TextDocumentContentChangeEvent, Url,
     };
 
     let mut server = LspServer::with_config(false, None);
@@ -1483,7 +1508,11 @@ package Usage {
         };
 
         let hover = server.get_hover(&uri_a, position)?;
-        if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+        if let HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: content,
+        }) = hover.contents
+        {
             Some(content)
         } else {
             None
@@ -1631,7 +1660,7 @@ package Refs {
 #[test]
 fn test_hover_on_usage_site_cleared_when_import_removed() {
     use async_lsp::lsp_types::{
-        HoverContents, MarkedString, Position, TextDocumentContentChangeEvent, Url,
+        HoverContents, MarkupContent, MarkupKind, Position, TextDocumentContentChangeEvent, Url,
     };
 
     let mut server = LspServer::with_config(false, None);
@@ -1680,7 +1709,10 @@ package Car {
     println!("=== INITIAL HOVER on Engine in file B (with import) ===");
     let initial_content = match &initial_hover {
         Some(hover) => match &hover.contents {
-            HoverContents::Scalar(MarkedString::String(s)) => s.clone(),
+            HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: s,
+            }) => s.clone(),
             _ => "Non-string content".to_string(),
         },
         None => "No hover".to_string(),
@@ -1715,7 +1747,10 @@ package Car {
     println!("\n=== UPDATED HOVER on Engine in file B (import removed) ===");
     let updated_content = match &updated_hover {
         Some(hover) => match &hover.contents {
-            HoverContents::Scalar(MarkedString::String(s)) => s.clone(),
+            HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: s,
+            }) => s.clone(),
             _ => "Non-string content".to_string(),
         },
         None => "No hover".to_string(),
@@ -1742,7 +1777,7 @@ package Car {
 /// This ensures the relationship graph properly tracks import-based references.
 #[test]
 fn test_hover_shows_import_based_references() {
-    use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
+    use async_lsp::lsp_types::{HoverContents, MarkupContent, MarkupKind, Position, Url};
 
     let mut server = LspServer::with_config(false, None);
 
@@ -1782,7 +1817,11 @@ package SensorUsage {
     assert!(hover_result.is_some(), "Should get hover for Sensor");
 
     let hover = hover_result.unwrap();
-    if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+    if let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    {
         println!("=== SENSOR HOVER ===");
         println!("{content}");
 
@@ -1801,7 +1840,7 @@ package SensorUsage {
 /// This directly tests the bug where hovering on MassValue in "import ISQ::MassValue" fails
 #[test]
 fn test_hover_isq_massvalue() {
-    use async_lsp::lsp_types::{HoverContents, MarkedString, Position, Url};
+    use async_lsp::lsp_types::{HoverContents, MarkupContent, MarkupKind, Position, Url};
 
     // Create server with explicit stdlib path for testing
     let stdlib_path = stdlib_path();
@@ -1863,7 +1902,10 @@ fn test_hover_isq_massvalue() {
     println!("Hover result: {:?}", hover_result.is_some());
 
     if let Some(hover) = &hover_result
-        && let HoverContents::Scalar(MarkedString::String(content)) = &hover.contents
+        && let HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: content,
+        }) = &hover.contents
     {
         println!("=== HOVER CONTENT ===");
         println!("{content}");
@@ -1875,7 +1917,11 @@ fn test_hover_isq_massvalue() {
     );
 
     let hover = hover_result.unwrap();
-    if let HoverContents::Scalar(MarkedString::String(content)) = hover.contents {
+    if let HoverContents::Markup(MarkupContent {
+        kind: MarkupKind::Markdown,
+        value: content,
+    }) = hover.contents
+    {
         assert!(
             content.contains("MassValue"),
             "Hover should mention MassValue, got: {content}"

@@ -1,6 +1,8 @@
 use super::LspServer;
 use super::helpers::{decode_uri_component, uri_to_path};
-use async_lsp::lsp_types::{Hover, HoverContents, MarkedString, Position, Range, Url};
+use async_lsp::lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position, Range, Url};
+use syster::hir::RelationshipKind;
+use syster::ide::ResolvedRelationship;
 
 impl LspServer {
     /// Get hover information for a symbol at the given position
@@ -21,6 +23,9 @@ impl LspServer {
         // Get the qualified name from the result to find references
         let mut contents = result.contents.clone();
 
+        // Add relationships section with clickable links
+        contents = Self::add_relationships_section(&analysis, &contents, &result.relationships);
+
         // Add "Referenced by:" section with clickable links
         if let Some(qualified_name) = result.qualified_name.as_ref() {
             contents =
@@ -29,7 +34,10 @@ impl LspServer {
 
         // Convert to LSP Hover
         Some(Hover {
-            contents: HoverContents::Scalar(MarkedString::String(contents)),
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: contents,
+            }),
             range: Some(Range {
                 start: Position {
                     line: result.start_line,
@@ -41,6 +49,73 @@ impl LspServer {
                 },
             }),
         })
+    }
+
+    /// Add relationships section with clickable links to definitions.
+    fn add_relationships_section(
+        analysis: &syster::ide::Analysis<'_>,
+        content: &str,
+        relationships: &[ResolvedRelationship],
+    ) -> String {
+        use std::collections::HashMap;
+
+        if relationships.is_empty() {
+            return content.to_string();
+        }
+
+        // Group relationships by kind
+        let mut by_kind: HashMap<RelationshipKind, Vec<&ResolvedRelationship>> = HashMap::new();
+        for rel in relationships {
+            by_kind.entry(rel.kind).or_default().push(rel);
+        }
+
+        // Display in a logical order
+        let order = [
+            RelationshipKind::Specializes,
+            RelationshipKind::TypedBy,
+            RelationshipKind::Subsets,
+            RelationshipKind::Redefines,
+            RelationshipKind::References,
+            RelationshipKind::Satisfies,
+            RelationshipKind::Performs,
+            RelationshipKind::Exhibits,
+            RelationshipKind::Includes,
+            RelationshipKind::Asserts,
+            RelationshipKind::Verifies,
+        ];
+
+        let mut result = content.to_string();
+
+        for kind in order {
+            if let Some(rels) = by_kind.get(&kind) {
+                result.push_str("\n**");
+                result.push_str(kind.display());
+                result.push_str(":** ");
+
+                let links: Vec<String> = rels
+                    .iter()
+                    .map(|rel| {
+                        let target_name = rel.target_name.as_ref();
+
+                        // Use pre-resolved file/line info
+                        if let (Some(file_id), Some(line)) = (rel.target_file, rel.target_line)
+                            && let Some(path) = analysis.get_file_path(file_id)
+                            && let Ok(uri) = Url::from_file_path(path)
+                        {
+                            let display_line = line + 1;
+                            return format!("[{target_name}]({uri}#L{display_line})");
+                        }
+                        // Fallback: just show the name without a link
+                        format!("`{target_name}`")
+                    })
+                    .collect();
+
+                result.push_str(&links.join(", "));
+                result.push('\n');
+            }
+        }
+
+        result
     }
 
     /// Add "Referenced by:" section with clickable file links.
