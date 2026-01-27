@@ -7,12 +7,16 @@ license = "MIT"
 repository = "https://github.com/jade-codes/syster-lsp"
 description = "Language Server Protocol implementation for SysML v2"
 
+[features]
+default = ["interchange"]
+interchange = ["syster-base/interchange"]
+
 [[bin]]
 name = "syster-lsp"
 path = "src/main.rs"
 
 [dependencies]
-syster-base = "0.2.1-alpha"
+syster-base = { path = "../../../base" }
 async-lsp = { version = "0.2", features = ["tokio", "tracing"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["compat"] }
@@ -23,7 +27,8 @@ serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 percent-encoding = "2.3"
+base64 = "0.22"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
-syster-base = "0.2.1-alpha"
+syster-base = { path = "../../../base" }

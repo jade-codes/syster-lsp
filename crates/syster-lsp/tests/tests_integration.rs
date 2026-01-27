@@ -4,34 +4,22 @@
 
 use std::path::PathBuf;
 use syster_lsp::LspServer;
-use syster_lsp::test_helpers::LspServerTestExt;
+use syster_lsp::test_helpers::{create_server_with_cached_stdlib, LspServerTestExt};
 
 /// Helper: Get the stdlib path for tests
 fn stdlib_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library")
 }
 
-/// Helper: Create an LspServer with stdlib loaded
+/// Helper: Create an LspServer with cached stdlib (fast after first call)
 fn create_server_with_stdlib() -> LspServer {
-    let mut server = LspServer::with_config(true, Some(stdlib_path()));
-    server
-        .ensure_workspace_loaded()
-        .expect("Failed to load stdlib");
-    server
+    create_server_with_cached_stdlib()
 }
 
-/// Helper: Create an AnalysisHost with stdlib loaded
+/// Helper: Create an AnalysisHost with cached stdlib loaded
 fn create_analysis_host_with_stdlib() -> syster::ide::AnalysisHost {
-    use syster::ide::AnalysisHost;
-    use syster::project::StdLibLoader;
-
-    let mut host = AnalysisHost::new();
-    let mut stdlib_loader = StdLibLoader::with_path(stdlib_path());
-    stdlib_loader
-        .ensure_loaded_into_host(&mut host)
-        .expect("Failed to load stdlib");
-    host.mark_dirty();
-    host
+    use syster::project::CachedStdLib;
+    CachedStdLib::analysis_host()
 }
 
 #[test]

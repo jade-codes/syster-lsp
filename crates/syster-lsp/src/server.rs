@@ -12,6 +12,8 @@ pub mod formatting;
 pub mod helpers;
 mod hover;
 mod inlay_hints;
+#[cfg(feature = "interchange")]
+pub mod interchange;
 mod position;
 mod references;
 mod rename;

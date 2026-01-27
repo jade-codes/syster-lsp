@@ -1,8 +1,8 @@
 use super::LspServer;
-use async_lsp::lsp_types::{DocumentSymbol, Position, Range, SymbolKind};
+use super::helpers::hir_to_lsp_symbol_kind;
+use async_lsp::lsp_types::{DocumentSymbol, Position, Range};
 use std::collections::HashMap;
 use std::path::Path;
-use syster::hir::SymbolKind as HirSymbolKind;
 
 impl LspServer {
     /// Get all symbols in a document for the outline view.
@@ -37,7 +37,7 @@ impl LspServer {
                 let doc_symbol = DocumentSymbol {
                     name: sym.name.to_string(),
                     detail: Some(sym.qualified_name.to_string()),
-                    kind: convert_symbol_kind(sym.kind),
+                    kind: hir_to_lsp_symbol_kind(sym.kind),
                     range,
                     selection_range: range,
                     children: Some(Vec::new()),
@@ -98,55 +98,5 @@ impl LspServer {
         let mut root_symbols: Vec<DocumentSymbol> = symbol_map.into_values().collect();
         root_symbols.sort_by(|a, b| a.name.cmp(&b.name));
         root_symbols
-    }
-}
-
-fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
-    match kind {
-        HirSymbolKind::Package => SymbolKind::NAMESPACE,
-
-        // Definitions are classes
-        HirSymbolKind::PartDef
-        | HirSymbolKind::ItemDef
-        | HirSymbolKind::ActionDef
-        | HirSymbolKind::PortDef
-        | HirSymbolKind::AttributeDef
-        | HirSymbolKind::ConnectionDef
-        | HirSymbolKind::InterfaceDef
-        | HirSymbolKind::AllocationDef
-        | HirSymbolKind::RequirementDef
-        | HirSymbolKind::ConstraintDef
-        | HirSymbolKind::StateDef
-        | HirSymbolKind::CalculationDef
-        | HirSymbolKind::UseCaseDef
-        | HirSymbolKind::AnalysisCaseDef
-        | HirSymbolKind::ConcernDef
-        | HirSymbolKind::ViewDef
-        | HirSymbolKind::ViewpointDef
-        | HirSymbolKind::RenderingDef
-        | HirSymbolKind::EnumerationDef => SymbolKind::CLASS,
-
-        // Usages are properties
-        HirSymbolKind::PartUsage
-        | HirSymbolKind::ItemUsage
-        | HirSymbolKind::ActionUsage
-        | HirSymbolKind::PortUsage
-        | HirSymbolKind::AttributeUsage
-        | HirSymbolKind::ConnectionUsage
-        | HirSymbolKind::InterfaceUsage
-        | HirSymbolKind::AllocationUsage
-        | HirSymbolKind::RequirementUsage
-        | HirSymbolKind::ConstraintUsage
-        | HirSymbolKind::StateUsage
-        | HirSymbolKind::CalculationUsage
-        | HirSymbolKind::ReferenceUsage
-        | HirSymbolKind::OccurrenceUsage
-        | HirSymbolKind::FlowUsage => SymbolKind::PROPERTY,
-
-        HirSymbolKind::Alias => SymbolKind::VARIABLE,
-        HirSymbolKind::Import => SymbolKind::NAMESPACE,
-        HirSymbolKind::Comment => SymbolKind::STRING,
-        HirSymbolKind::Dependency => SymbolKind::VARIABLE,
-        HirSymbolKind::Other => SymbolKind::VARIABLE,
     }
 }

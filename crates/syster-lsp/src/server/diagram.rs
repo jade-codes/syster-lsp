@@ -11,7 +11,7 @@ use super::LspServer;
 use async_lsp::lsp_types::request::Request;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use syster::hir::{HirSymbol, SymbolKind};
+use syster::hir::HirSymbol;
 
 /// Custom LSP request: syster/getDiagram
 pub enum GetDiagramRequest {}
@@ -140,60 +140,14 @@ impl LspServer {
 
 /// Convert a HirSymbol to DiagramSymbol
 fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
+    use super::helpers::hir_to_diagram_node_type;
+    
     let name = symbol.name.to_string();
     let qualified_name = symbol.qualified_name.to_string();
     let parent = extract_parent(&qualified_name);
     let typed_by = symbol.supertypes.first().map(|s| s.to_string());
 
-    let node_type = match symbol.kind {
-        // Definitions
-        SymbolKind::PartDef => "PartDef",
-        SymbolKind::ItemDef => "ItemDef",
-        SymbolKind::ActionDef => "ActionDef",
-        SymbolKind::PortDef => "PortDef",
-        SymbolKind::AttributeDef => "AttributeDef",
-        SymbolKind::ConnectionDef => "ConnectionDef",
-        SymbolKind::InterfaceDef => "InterfaceDef",
-        SymbolKind::AllocationDef => "AllocationDef",
-        SymbolKind::RequirementDef => "RequirementDef",
-        SymbolKind::ConstraintDef => "ConstraintDef",
-        SymbolKind::StateDef => "StateDef",
-        SymbolKind::CalculationDef => "CalculationDef",
-        SymbolKind::UseCaseDef => "UseCaseDef",
-        SymbolKind::AnalysisCaseDef => "AnalysisCaseDef",
-        SymbolKind::ConcernDef => "ConcernDef",
-        SymbolKind::ViewDef => "ViewDef",
-        SymbolKind::ViewpointDef => "ViewpointDef",
-        SymbolKind::RenderingDef => "RenderingDef",
-        SymbolKind::EnumerationDef => "EnumerationDef",
-
-        // Usages
-        SymbolKind::PartUsage => "PartUsage",
-        SymbolKind::ItemUsage => "ItemUsage",
-        SymbolKind::ActionUsage => "ActionUsage",
-        SymbolKind::PortUsage => "PortUsage",
-        SymbolKind::AttributeUsage => "AttributeUsage",
-        SymbolKind::ConnectionUsage => "ConnectionUsage",
-        SymbolKind::InterfaceUsage => "InterfaceUsage",
-        SymbolKind::AllocationUsage => "AllocationUsage",
-        SymbolKind::RequirementUsage => "RequirementUsage",
-        SymbolKind::ConstraintUsage => "ConstraintUsage",
-        SymbolKind::StateUsage => "StateUsage",
-        SymbolKind::CalculationUsage => "CalculationUsage",
-        SymbolKind::ReferenceUsage => "ReferenceUsage",
-        SymbolKind::OccurrenceUsage => "OccurrenceUsage",
-        SymbolKind::FlowUsage => "FlowUsage",
-
-        // Other
-        SymbolKind::Package => "Package",
-        SymbolKind::Alias
-        | SymbolKind::Import
-        | SymbolKind::Comment
-        | SymbolKind::Dependency
-        | SymbolKind::Other => {
-            return None;
-        }
-    };
+    let node_type = hir_to_diagram_node_type(symbol.kind)?;
 
     Some(DiagramSymbol {
         name,
@@ -218,6 +172,7 @@ fn extract_parent(qualified_name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use syster::hir::SymbolKind;
 
     /// Test that DiagramSymbol serializes correctly with camelCase
     #[test]

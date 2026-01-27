@@ -16,6 +16,25 @@ pub fn create_server() -> LspServer {
     LspServer::with_config(false, None)
 }
 
+/// Create an LspServer with cached stdlib.
+///
+/// **Performance Note:** The first call builds the cache (~15-20s), and each
+/// subsequent call clones the entire AnalysisHost which is also slow (~15-20s)
+/// due to the large amount of symbol data.
+///
+/// For faster tests:
+/// - Use `create_server()` when stdlib isn't needed
+/// - Run stdlib tests separately: `cargo test stdlib`
+/// - Use `--test-threads=1` to avoid parallel cache builds
+pub fn create_server_with_cached_stdlib() -> LspServer {
+    use syster::project::CachedStdLib;
+
+    let mut server = LspServer::with_config(false, None);
+    // Replace the server's analysis host with a clone of the cached one
+    *server.analysis_host_mut() = CachedStdLib::analysis_host();
+    server
+}
+
 /// Extension trait for LspServer test helpers
 ///
 /// These methods provide test-friendly access to internal state without

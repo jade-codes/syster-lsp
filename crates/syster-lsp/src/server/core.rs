@@ -232,6 +232,12 @@ impl LspServer {
         self.analysis_host.file_count()
     }
 
+    /// Get mutable access to analysis_host (for test helpers)
+    #[allow(dead_code)]
+    pub fn analysis_host_mut(&mut self) -> &mut AnalysisHost {
+        &mut self.analysis_host
+    }
+
     /// Get mutable access to document_texts
     #[allow(dead_code)]
     pub fn document_texts_mut(&mut self) -> &mut HashMap<PathBuf, String> {
