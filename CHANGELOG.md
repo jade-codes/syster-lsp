@@ -5,6 +5,19 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2-alpha] - 2026-01-29
+
+### Added
+
+- **SysML v2 Views LSP Endpoint** (`syster/getSysMLViews`):
+  - Discover ViewDefinition symbols in the workspace
+  - Return view metadata including exposes, filters, and documentation
+  - Support for applying views to filter visible symbols
+
+### Changed
+
+- **syster-base**: Updated to v0.2.2-alpha with SysML v2 Views support and filter import evaluation
+
 ## [0.2.1-alpha] - 2026-01-24
 
 ### Added
