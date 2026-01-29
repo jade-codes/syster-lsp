@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 use syster_lsp::LspServer;
-use syster_lsp::test_helpers::{create_server_with_cached_stdlib, LspServerTestExt};
+use syster_lsp::test_helpers::{LspServerTestExt, create_server_with_cached_stdlib};
 
 /// Helper: Get the stdlib path for tests
 fn stdlib_path() -> PathBuf {

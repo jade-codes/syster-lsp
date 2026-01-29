@@ -152,12 +152,16 @@ pub fn hir_to_lsp_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::CalculationUsage
         | HirSymbolKind::ReferenceUsage
         | HirSymbolKind::OccurrenceUsage
-        | HirSymbolKind::FlowUsage => SymbolKind::PROPERTY,
+        | HirSymbolKind::FlowUsage
+        | HirSymbolKind::ViewUsage
+        | HirSymbolKind::ViewpointUsage
+        | HirSymbolKind::RenderingUsage => SymbolKind::PROPERTY,
 
         HirSymbolKind::Alias => SymbolKind::VARIABLE,
         HirSymbolKind::Import => SymbolKind::NAMESPACE,
         HirSymbolKind::Comment => SymbolKind::STRING,
         HirSymbolKind::Dependency => SymbolKind::VARIABLE,
+        HirSymbolKind::ExposeRelationship => SymbolKind::VARIABLE,
         HirSymbolKind::Other => SymbolKind::VARIABLE,
     }
 }
@@ -207,6 +211,9 @@ pub fn hir_to_diagram_node_type(kind: HirSymbolKind) -> Option<&'static str> {
         HirSymbolKind::ReferenceUsage => Some("ReferenceUsage"),
         HirSymbolKind::OccurrenceUsage => Some("OccurrenceUsage"),
         HirSymbolKind::FlowUsage => Some("FlowUsage"),
+        HirSymbolKind::ViewUsage => Some("ViewUsage"),
+        HirSymbolKind::ViewpointUsage => Some("ViewpointUsage"),
+        HirSymbolKind::RenderingUsage => Some("RenderingUsage"),
 
         // Package
         HirSymbolKind::Package => Some("Package"),
@@ -216,6 +223,7 @@ pub fn hir_to_diagram_node_type(kind: HirSymbolKind) -> Option<&'static str> {
         | HirSymbolKind::Import
         | HirSymbolKind::Comment
         | HirSymbolKind::Dependency
+        | HirSymbolKind::ExposeRelationship
         | HirSymbolKind::Other => None,
     }
 }

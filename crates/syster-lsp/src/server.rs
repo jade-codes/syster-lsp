@@ -21,6 +21,7 @@ mod selection_range;
 mod semantic_tokens;
 mod type_definition;
 pub mod type_info;
+pub mod views;
 mod workspace_symbols;
 
 pub mod background_tasks;

@@ -148,6 +148,31 @@ impl LspServer {
         }
     }
 
+    /// Create a new LspServer using the cached stdlib for fast test setup.
+    ///
+    /// This uses `CachedStdLib` which parses the stdlib once and caches it
+    /// for subsequent calls. Much faster than `with_config` for tests.
+    #[allow(dead_code)]
+    pub fn with_cached_stdlib() -> Self {
+        use syster::project::CachedStdLib;
+
+        let mut server = Self {
+            analysis_host: CachedStdLib::analysis_host(),
+            parse_errors: HashMap::new(),
+            document_texts: HashMap::new(),
+            stdlib_loader: StdLibLoader::new(),
+            stdlib_enabled: true,
+            document_cancel_tokens: HashMap::new(),
+            workspace_initialized: true, // Already loaded!
+            workspace_folders: Vec::new(),
+        };
+
+        // Sync document texts from cached files
+        server.sync_document_texts_from_files();
+
+        server
+    }
+
     /// Set the workspace folders to scan for SysML/KerML files
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.workspace_folders = folders;
@@ -159,14 +184,25 @@ impl LspServer {
     /// Parse errors in individual files are logged but don't block workspace loading.
     /// Valid files are still loaded and functional even when some files have parse errors.
     pub fn ensure_workspace_loaded(&mut self) -> Result<(), String> {
+        tracing::info!(
+            workspace_initialized = self.workspace_initialized,
+            stdlib_enabled = self.stdlib_enabled,
+            "[Workspace] ensure_workspace_loaded called"
+        );
+
         if self.workspace_initialized {
+            tracing::info!("[Workspace] Already initialized, skipping");
             return Ok(());
         }
 
         // Load stdlib if enabled
         if self.stdlib_enabled {
+            tracing::info!("[Workspace] Loading stdlib...");
             self.stdlib_loader
                 .ensure_loaded_into_host(&mut self.analysis_host)?;
+            tracing::info!("[Workspace] Stdlib loaded successfully");
+        } else {
+            tracing::info!("[Workspace] Stdlib disabled, skipping");
         }
 
         // Load all SysML/KerML files from workspace folders
@@ -178,6 +214,17 @@ impl LspServer {
                 tracing::warn!(
                     folder = %folder.display().to_string(),
                     "Some files failed to parse: {err}"
+                );
+            }
+
+            // Load metadata files to restore element IDs from XMI imports
+            #[cfg(feature = "interchange")]
+            if let Err(err) = loader.load_metadata_from_directory(&folder, &mut self.analysis_host)
+            {
+                // Non-fatal - metadata is optional
+                tracing::debug!(
+                    folder = %folder.display().to_string(),
+                    "Metadata loading: {err}"
                 );
             }
         }

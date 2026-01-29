@@ -96,7 +96,7 @@ pub struct DiagramData {
 
 impl LspServer {
     /// Get diagram data for the workspace or a specific file.
-    /// Returns raw symbol data - presentation logic belongs in the frontend.
+    /// Filters symbols based on the view type.
     pub fn get_diagram(&mut self, file_path: Option<&Path>, view_type: &str) -> DiagramData {
         let mut symbols = Vec::new();
         let mut relationships = Vec::new();
@@ -115,7 +115,7 @@ impl LspServer {
             Box::new(analysis.symbol_index().all_symbols())
         };
 
-        // Convert all symbols - frontend decides how to display them
+        // Convert all symbols (no filtering - views will handle this)
         for symbol in symbol_iter {
             if let Some(diagram_symbol) = convert_symbol_to_diagram(symbol) {
                 // Extract typing relationship from the symbol itself
@@ -126,6 +126,16 @@ impl LspServer {
                         target: typed_by.clone(),
                     });
                 }
+
+                // Extract membership relationship (parent-child)
+                if let Some(ref parent) = diagram_symbol.parent {
+                    relationships.push(DiagramRelationship {
+                        rel_type: "membership".to_string(),
+                        source: parent.clone(),
+                        target: diagram_symbol.qualified_name.clone(),
+                    });
+                }
+
                 symbols.push(diagram_symbol);
             }
         }
@@ -141,13 +151,14 @@ impl LspServer {
 /// Convert a HirSymbol to DiagramSymbol
 fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
     use super::helpers::hir_to_diagram_node_type;
-    
+
+    // Get node type - returns None for symbols that shouldn't be in diagrams
+    let node_type = hir_to_diagram_node_type(symbol.kind)?;
+
     let name = symbol.name.to_string();
     let qualified_name = symbol.qualified_name.to_string();
     let parent = extract_parent(&qualified_name);
     let typed_by = symbol.supertypes.first().map(|s| s.to_string());
-
-    let node_type = hir_to_diagram_node_type(symbol.kind)?;
 
     Some(DiagramSymbol {
         name,
@@ -284,11 +295,13 @@ mod tests {
     #[test]
     fn test_convert_definition_symbol() {
         use syster::base::FileId;
+        use syster::hir::new_element_id;
 
         let symbol = HirSymbol {
             name: "Vehicle".into(),
             short_name: None,
             qualified_name: "Pkg::Vehicle".into(),
+            element_id: new_element_id(),
             kind: SymbolKind::PartDef,
             file: FileId::new(0),
             start_line: 0,
@@ -302,6 +315,7 @@ mod tests {
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
+            view_data: None,
             type_refs: Vec::new(),
             is_public: false,
         };
@@ -319,11 +333,13 @@ mod tests {
     #[test]
     fn test_convert_usage_symbol() {
         use syster::base::FileId;
+        use syster::hir::new_element_id;
 
         let symbol = HirSymbol {
             name: "engine".into(),
             short_name: None,
             qualified_name: "Pkg::Vehicle::engine".into(),
+            element_id: new_element_id(),
             kind: SymbolKind::PartUsage,
             file: FileId::new(0),
             start_line: 0,
@@ -337,6 +353,7 @@ mod tests {
             supertypes: vec!["Engine".into()],
             relationships: Vec::new(),
             doc: None,
+            view_data: None,
             type_refs: Vec::new(),
             is_public: false,
         };
@@ -354,11 +371,13 @@ mod tests {
     #[test]
     fn test_convert_package_symbol() {
         use syster::base::FileId;
+        use syster::hir::new_element_id;
 
         let symbol = HirSymbol {
             name: "MyPackage".into(),
             short_name: None,
             qualified_name: "Root::MyPackage".into(),
+            element_id: new_element_id(),
             kind: SymbolKind::Package,
             file: FileId::new(0),
             start_line: 0,
@@ -372,6 +391,7 @@ mod tests {
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
+            view_data: None,
             type_refs: Vec::new(),
             is_public: false,
         };
@@ -388,11 +408,13 @@ mod tests {
     #[test]
     fn test_convert_alias_symbol_returns_none() {
         use syster::base::FileId;
+        use syster::hir::new_element_id;
 
         let symbol = HirSymbol {
             name: "MyAlias".into(),
             short_name: None,
             qualified_name: "Pkg::MyAlias".into(),
+            element_id: new_element_id(),
             kind: SymbolKind::Alias,
             file: FileId::new(0),
             start_line: 0,
@@ -406,6 +428,7 @@ mod tests {
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
+            view_data: None,
             type_refs: Vec::new(),
             is_public: false,
         };
@@ -417,11 +440,13 @@ mod tests {
     #[test]
     fn test_convert_import_symbol_returns_none() {
         use syster::base::FileId;
+        use syster::hir::new_element_id;
 
         let symbol = HirSymbol {
             name: "_import".into(),
             short_name: None,
             qualified_name: "Pkg::_import_Other::Thing".into(),
+            element_id: new_element_id(),
             kind: SymbolKind::Import,
             file: FileId::new(0),
             start_line: 0,
@@ -435,6 +460,7 @@ mod tests {
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
+            view_data: None,
             type_refs: Vec::new(),
             is_public: false,
         };

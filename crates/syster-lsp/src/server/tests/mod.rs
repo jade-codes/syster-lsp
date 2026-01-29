@@ -13,3 +13,4 @@ mod tests_helpers_char_offset_to_utf16;
 mod tests_helpers_position_to_byte_offset;
 mod tests_lsp_server_state;
 mod tests_server;
+mod tests_views;

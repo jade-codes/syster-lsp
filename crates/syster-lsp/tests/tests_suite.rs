@@ -13,6 +13,7 @@ use syster_lsp::test_helpers::LspServerTestExt;
 // ============================================================
 
 /// Get the path to the stdlib directory
+#[allow(dead_code)]
 fn get_stdlib_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library")
 }
@@ -22,9 +23,9 @@ fn create_server_no_stdlib() -> LspServer {
     LspServer::with_config(false, None)
 }
 
-/// Create a server with stdlib loaded
+/// Create a server with stdlib loaded (uses cached stdlib for speed)
 fn create_server_with_stdlib() -> LspServer {
-    LspServer::with_config(true, Some(get_stdlib_path()))
+    LspServer::with_cached_stdlib()
 }
 
 /// Open a document in the server and return the URI
