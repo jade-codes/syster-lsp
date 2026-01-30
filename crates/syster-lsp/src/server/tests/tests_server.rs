@@ -2324,6 +2324,7 @@ fn test_measurement_references_file_directly() {
 
     // Check that DimensionOneUnit is findable
     let dim_one_unit = server.find_symbol_qualified("MeasurementReferences::DimensionOneUnit");
+    
     assert!(
         dim_one_unit.is_some(),
         "DimensionOneUnit should be found in stdlib"

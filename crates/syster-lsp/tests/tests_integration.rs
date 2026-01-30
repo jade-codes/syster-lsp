@@ -3436,12 +3436,9 @@ fn test_hover_type_in_cross_file_action_sequence() {
         server.loaded_file_paths().iter().collect::<Vec<_>>()
     );
 
-    // Try to manually parse the file to see errors
-    let manual_parse = syster::syntax::sysml::parser::parse_with_result(
-        main_source,
-        &std::path::PathBuf::from("/VehicleInteraction.sysml"),
-    );
-    println!("  Manual parse errors: {:?}", manual_parse.errors);
+    // Try to manually parse the file to see errors (disabled - parser API changed)
+    // let manual_parse = syster::parser::SysMLParser::parse(main_source);
+    // println!("  Manual parse errors: {:?}", manual_parse.errors);
 
     // Debug: Check file count
     println!("\n=== LOADED FILES ===");

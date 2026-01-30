@@ -85,38 +85,10 @@ impl LspServer {
         self.parse_errors
             .insert(path.to_path_buf(), parse_result.errors);
 
-        if let Some(file) = parse_result.content {
-            // Use set_file which handles update vs add
-            self.analysis_host.set_file(path.to_path_buf(), file);
-            // Index is automatically marked dirty by AnalysisHost
-        } else {
-            // Parse failed completely - still add an empty file so the file_id exists
-            // This allows completions/hover to work even with invalid syntax
-            let empty_file = Self::create_empty_syntax_file(path);
-            self.analysis_host.set_file(path.to_path_buf(), empty_file);
-        }
-    }
-
-    /// Create an empty SyntaxFile based on file extension
-    fn create_empty_syntax_file(path: &std::path::Path) -> syster::syntax::SyntaxFile {
-        use syster::syntax::SyntaxFile;
-        use syster::syntax::kerml::KerMLFile;
-        use syster::syntax::sysml::ast::SysMLFile;
-
-        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("sysml");
-
-        if ext == "kerml" {
-            SyntaxFile::KerML(KerMLFile {
-                namespace: None,
-                elements: Vec::new(),
-            })
-        } else {
-            SyntaxFile::SysML(SysMLFile {
-                namespace: None,
-                namespaces: Vec::new(),
-                elements: Vec::new(),
-            })
-        }
+        // Always use the provided text, not reading from disk
+        // (Tests provide in-memory text that doesn't exist on disk)
+        let path_str = path.to_string_lossy();
+        self.analysis_host.set_file_content(&path_str, text);
     }
 
     /// Convert URI to path and validate extension is SysML or KerML

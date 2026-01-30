@@ -166,6 +166,8 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         SymbolKind::ViewpointDef => "ViewpointDef",
         SymbolKind::RenderingDef => "RenderingDef",
         SymbolKind::EnumerationDef => "EnumerationDef",
+        SymbolKind::MetaclassDef => "MetaclassDef",
+        SymbolKind::InteractionDef => "InteractionDef",
 
         // Usages
         SymbolKind::PartUsage => "PartUsage",
@@ -349,6 +351,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            metadata_annotations: Vec::new(),
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -384,6 +387,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            metadata_annotations: Vec::new(),
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -419,6 +423,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            metadata_annotations: Vec::new(),
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -453,6 +458,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            metadata_annotations: Vec::new(),
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
@@ -482,6 +488,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            metadata_annotations: Vec::new(),
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());

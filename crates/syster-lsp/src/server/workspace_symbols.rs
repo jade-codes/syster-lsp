@@ -72,7 +72,9 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::ViewDef
         | HirSymbolKind::ViewpointDef
         | HirSymbolKind::RenderingDef
-        | HirSymbolKind::EnumerationDef => SymbolKind::CLASS,
+        | HirSymbolKind::EnumerationDef
+        | HirSymbolKind::MetaclassDef
+        | HirSymbolKind::InteractionDef => SymbolKind::CLASS,
 
         // Usages are properties
         HirSymbolKind::PartUsage

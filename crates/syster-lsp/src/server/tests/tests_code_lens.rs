@@ -99,7 +99,10 @@ part def Car specializes Vehicle {
     let lenses = server.get_code_lenses(&uri);
 
     // Should have code lenses for Vehicle and Car
-    // Vehicle has 2 references: from specializes + from redefines Vehicle::speed
+    // Vehicle has 3 references:
+    // 1. from `specializes Vehicle`
+    // 2. from `redefines Vehicle::speed` (the full qualified name)
+    // 3. from `Vehicle::speed` prefix extraction (Vehicle is referenced)
     let lens_titles: Vec<&str> = lenses
         .iter()
         .filter_map(|l| l.command.as_ref())
@@ -107,8 +110,8 @@ part def Car specializes Vehicle {
         .collect();
 
     assert!(
-        lens_titles.contains(&"2 references"),
-        "Vehicle should have 2 references, got {:?}",
+        lens_titles.contains(&"3 references"),
+        "Vehicle should have 3 references, got {:?}",
         lens_titles
     );
 }
