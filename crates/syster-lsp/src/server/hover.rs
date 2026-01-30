@@ -22,6 +22,11 @@ impl LspServer {
 
         // Get the qualified name from the result to find references
         let mut contents = result.contents.clone();
+        
+        // Make qualified name clickable if we can find its definition
+        if let Some(qualified_name) = result.qualified_name.as_ref() {
+            contents = Self::make_qualified_name_clickable(&analysis, &contents, qualified_name);
+        }
 
         // Add relationships section with clickable links
         contents = Self::add_relationships_section(&analysis, &contents, &result.relationships);
@@ -49,6 +54,29 @@ impl LspServer {
                 },
             }),
         })
+    }
+    
+    /// Make the qualified name in hover content a clickable link to its definition.
+    fn make_qualified_name_clickable(
+        analysis: &syster::ide::Analysis<'_>,
+        content: &str,
+        qualified_name: &str,
+    ) -> String {
+        // Try to find the definition location
+        if let Some(symbol) = analysis.symbol_index().lookup_qualified(qualified_name) {
+            if let Some(path) = analysis.get_file_path(symbol.file)
+                && let Ok(uri) = Url::from_file_path(path)
+            {
+                let display_line = symbol.start_line + 1;
+                let link = format!("[`{qualified_name}`]({uri}#L{display_line})");
+                
+                // Replace the backtick-quoted qualified name with a link
+                let old = format!("**Qualified Name:** `{}`", qualified_name);
+                let new = format!("**Qualified Name:** {}", link);
+                return content.replace(&old, &new);
+            }
+        }
+        content.to_string()
     }
 
     /// Add relationships section with clickable links to definitions.
