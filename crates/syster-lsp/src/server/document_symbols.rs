@@ -143,10 +143,14 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::CalculationUsage
         | HirSymbolKind::ReferenceUsage
         | HirSymbolKind::OccurrenceUsage
-        | HirSymbolKind::FlowUsage => SymbolKind::PROPERTY,
+        | HirSymbolKind::FlowUsage
+        | HirSymbolKind::ViewUsage
+        | HirSymbolKind::ViewpointUsage
+        | HirSymbolKind::RenderingUsage => SymbolKind::PROPERTY,
 
         HirSymbolKind::Alias => SymbolKind::VARIABLE,
         HirSymbolKind::Import => SymbolKind::NAMESPACE,
+        HirSymbolKind::ExposeRelationship => SymbolKind::NAMESPACE,
         HirSymbolKind::Comment => SymbolKind::STRING,
         HirSymbolKind::Dependency => SymbolKind::VARIABLE,
         HirSymbolKind::Other => SymbolKind::VARIABLE,

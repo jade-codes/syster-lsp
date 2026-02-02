@@ -91,7 +91,9 @@ fn test_vehicle_example_all_references_have_hover() {
         .collect();
 
     // Deduplicate by (target, line, col_start, col_end) - different containing symbols shouldn't count as different refs
-    all_refs.sort_by_key(|(target, _, line, col_start, col_end)| (target.clone(), *line, *col_start, *col_end));
+    all_refs.sort_by_key(|(target, _, line, col_start, col_end)| {
+        (target.clone(), *line, *col_start, *col_end)
+    });
     all_refs.dedup_by(|(t1, _, l1, cs1, ce1), (t2, _, l2, cs2, ce2)| {
         t1 == t2 && l1 == l2 && cs1 == cs2 && ce1 == ce2
     });
@@ -143,12 +145,18 @@ fn test_vehicle_example_all_references_have_hover() {
                 if is_simple_name && !resolved_to_target {
                     // Debug: Print failing case details
                     if failing_by_pattern.values().map(|v| v.len()).sum::<usize>() < 10 {
-                        println!("[FAIL DEBUG] Line {}: target='{}' col {}-{}", line + 1, target, col_start, col_end);
+                        println!(
+                            "[FAIL DEBUG] Line {}: target='{}' col {}-{}",
+                            line + 1,
+                            target,
+                            col_start,
+                            col_end
+                        );
                         println!("[FAIL DEBUG]   Source: {}", source);
                         println!("[FAIL DEBUG]   Line text: {}", line_text.trim());
                         println!("[FAIL DEBUG]   Hover returned: {}", hover_content);
                     }
-                    
+
                     // This is a simple name that didn't resolve - likely a problem
                     let failure = FailingReference {
                         line: *line,
@@ -169,11 +177,17 @@ fn test_vehicle_example_all_references_have_hover() {
             None => {
                 // Debug: Print failing case with no hover
                 if failing_by_pattern.values().map(|v| v.len()).sum::<usize>() < 10 {
-                    println!("[FAIL DEBUG - NO HOVER] Line {}: target='{}' col {}-{}", line + 1, target, col_start, col_end);
+                    println!(
+                        "[FAIL DEBUG - NO HOVER] Line {}: target='{}' col {}-{}",
+                        line + 1,
+                        target,
+                        col_start,
+                        col_end
+                    );
                     println!("[FAIL DEBUG - NO HOVER]   Source: {}", source);
                     println!("[FAIL DEBUG - NO HOVER]   Line text: {}", line_text.trim());
                 }
-                
+
                 let failure = FailingReference {
                     line: *line,
                     col_start: *col_start,

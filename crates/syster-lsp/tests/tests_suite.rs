@@ -714,8 +714,6 @@ mod resolution_tests {
         };
         let hover = server.get_hover(&uri, pos);
 
-        eprintln!("[DEBUG] Hover result: {:?}", hover);
-
         assert!(
             hover.is_some(),
             "Hover on 'Real' should resolve to ScalarValues::Real via transitive public imports"

@@ -1085,8 +1085,8 @@ package Usage {
     );
     assert_eq!(
         file2_refs.len(),
-        3,
-        "Must have exactly 3 references in file2 (import + 2 usages: car and truck)"
+        4,
+        "Must have exactly 4 references in file2 (import path + import + 2 usages: car and truck)"
     );
 }
 
@@ -1235,11 +1235,11 @@ package Usage {
         .get_references(&uri, position, true)
         .expect("Must find references through import");
 
-    // Now finds: definition (line 2), import (line 5), and usage (line 6)
+    // Now finds: definition (line 2), import path (line 5), import symbol (line 5), and usage (line 6)
     assert_eq!(
         locations.len(),
-        3,
-        "Must find exactly 3 references: definition (line 2), import (line 5), and usage (line 6)"
+        4,
+        "Must find exactly 4 references: definition (line 2), import path (line 5), import symbol (line 5), and usage (line 6)"
     );
 
     let lines: Vec<u32> = locations.iter().map(|l| l.range.start.line).collect();
@@ -2324,7 +2324,7 @@ fn test_measurement_references_file_directly() {
 
     // Check that DimensionOneUnit is findable
     let dim_one_unit = server.find_symbol_qualified("MeasurementReferences::DimensionOneUnit");
-    
+
     assert!(
         dim_one_unit.is_some(),
         "DimensionOneUnit should be found in stdlib"

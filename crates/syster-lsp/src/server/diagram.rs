@@ -185,6 +185,9 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         SymbolKind::ReferenceUsage => "ReferenceUsage",
         SymbolKind::OccurrenceUsage => "OccurrenceUsage",
         SymbolKind::FlowUsage => "FlowUsage",
+        SymbolKind::ViewUsage => "ViewUsage",
+        SymbolKind::ViewpointUsage => "ViewpointUsage",
+        SymbolKind::RenderingUsage => "RenderingUsage",
 
         // Other
         SymbolKind::Package => "Package",
@@ -192,6 +195,7 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         | SymbolKind::Import
         | SymbolKind::Comment
         | SymbolKind::Dependency
+        | SymbolKind::ExposeRelationship
         | SymbolKind::Other => {
             return None;
         }
@@ -336,6 +340,7 @@ mod tests {
             name: "Vehicle".into(),
             short_name: None,
             qualified_name: "Pkg::Vehicle".into(),
+            element_id: "test-id-1".into(),
             kind: SymbolKind::PartDef,
             file: FileId::new(0),
             start_line: 0,
@@ -351,6 +356,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
             metadata_annotations: Vec::new(),
         };
 
@@ -372,6 +378,7 @@ mod tests {
             name: "engine".into(),
             short_name: None,
             qualified_name: "Pkg::Vehicle::engine".into(),
+            element_id: "test-id-2".into(),
             kind: SymbolKind::PartUsage,
             file: FileId::new(0),
             start_line: 0,
@@ -387,6 +394,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
             metadata_annotations: Vec::new(),
         };
 
@@ -408,6 +416,7 @@ mod tests {
             name: "MyPackage".into(),
             short_name: None,
             qualified_name: "Root::MyPackage".into(),
+            element_id: "test-id-3".into(),
             kind: SymbolKind::Package,
             file: FileId::new(0),
             start_line: 0,
@@ -423,6 +432,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
             metadata_annotations: Vec::new(),
         };
 
@@ -443,6 +453,7 @@ mod tests {
             name: "MyAlias".into(),
             short_name: None,
             qualified_name: "Pkg::MyAlias".into(),
+            element_id: "test-id-4".into(),
             kind: SymbolKind::Alias,
             file: FileId::new(0),
             start_line: 0,
@@ -458,6 +469,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
             metadata_annotations: Vec::new(),
         };
 
@@ -473,6 +485,7 @@ mod tests {
             name: "_import".into(),
             short_name: None,
             qualified_name: "Pkg::_import_Other::Thing".into(),
+            element_id: "test-id-5".into(),
             kind: SymbolKind::Import,
             file: FileId::new(0),
             start_line: 0,
@@ -488,6 +501,7 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
             metadata_annotations: Vec::new(),
         };
 

@@ -1,5 +1,5 @@
 use super::LspServer;
-use super::helpers::{position_to_lsp_position, uri_to_path};
+use super::helpers::uri_to_path;
 use async_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
 use syster::hir::{Severity as HirSeverity, check_file};
 
