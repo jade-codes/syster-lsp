@@ -30,10 +30,8 @@ fn test_vehicle_example_all_references_have_hover() {
 
     let lines: Vec<&str> = source.lines().collect();
 
-    // Load stdlib for proper resolution
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-
-    let mut server = LspServer::with_config(true, Some(stdlib_path));
+    // Use cached stdlib for fast test setup
+    let mut server = LspServer::with_cached_stdlib();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     server
@@ -322,10 +320,8 @@ fn test_vehicle_example_semantic_tokens() {
 
     let lines: Vec<&str> = source.lines().collect();
 
-    // Load stdlib for proper resolution
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-
-    let mut server = LspServer::with_config(true, Some(stdlib_path));
+    // Use cached stdlib for fast test setup
+    let mut server = LspServer::with_cached_stdlib();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     server

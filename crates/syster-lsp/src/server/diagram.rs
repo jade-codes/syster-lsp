@@ -203,7 +203,6 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         | SymbolKind::Import
         | SymbolKind::Comment
         | SymbolKind::Dependency
-        | SymbolKind::ExposeRelationship
         | SymbolKind::Other => {
             return None;
         }

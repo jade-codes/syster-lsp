@@ -151,7 +151,6 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         HirSymbolKind::ExposeRelationship => SymbolKind::VARIABLE,
         HirSymbolKind::Alias => SymbolKind::VARIABLE,
         HirSymbolKind::Import => SymbolKind::NAMESPACE,
-        HirSymbolKind::ExposeRelationship => SymbolKind::NAMESPACE,
         HirSymbolKind::Comment => SymbolKind::STRING,
         HirSymbolKind::Dependency => SymbolKind::VARIABLE,
         HirSymbolKind::Other => SymbolKind::VARIABLE,

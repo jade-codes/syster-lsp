@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0-alpha] - 2026-02-03
 
+### Added
+
+- **SysML v2 Views LSP Endpoint** (`syster/getSysMLViews`):
+  - Discover ViewDefinition symbols in the workspace
+  - Return view metadata including exposes, filters, and documentation
+  - Support for applying views to filter visible symbols
+
+- **Import/Export Functionality**: 
+  - Export workspace models to interchange formats
+  - Import external model files
+
 ### Changed
 
 - **syster-base**: Updated to v0.3.0-alpha (Rowan parser refactor)
