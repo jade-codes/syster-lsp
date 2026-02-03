@@ -1,5 +1,5 @@
 use super::LspServer;
-use super::helpers::{position_to_lsp_position, uri_to_path};
+use super::helpers::uri_to_path;
 use async_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
 use syster::hir::{Severity as HirSeverity, check_file};
 
@@ -15,7 +15,10 @@ impl LspServer {
         // 1. Convert parse errors to LSP diagnostics
         if let Some(errors) = self.parse_errors.get(&path) {
             for e in errors.iter() {
-                let pos = position_to_lsp_position(&e.position);
+                let pos = Position {
+                    line: e.line as u32,
+                    character: e.column as u32,
+                };
                 diagnostics.push(Diagnostic {
                     range: Range {
                         start: pos,

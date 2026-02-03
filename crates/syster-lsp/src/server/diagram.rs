@@ -3,9 +3,9 @@
 //! Provides diagram data (symbols + relationships) in a format consumable
 //! by the diagram-core TypeScript package.
 //!
-//! IMPORTANT: The `node_type` field MUST match the NODE_TYPES values in
-//! packages/diagram-core/src/sysml-nodes.ts. If they don't match, nodes
-//! won't render in the diagram.
+//! The viewer expects symbols with `kind` ("Definition", "Usage", "Package"),
+//! `definitionKind` ("Part", "Port", etc.), and `usageKind` fields.
+//! These are combined by the viewer to form node types like "PartDef", "PartUsage".
 
 use super::LspServer;
 use async_lsp::lsp_types::request::Request;
@@ -41,8 +41,8 @@ fn default_view_type() -> String {
 
 /// Symbol data for diagram visualization.
 ///
-/// The `node_type` field MUST match NODE_TYPES from diagram-core.
-/// Examples: "PartDef", "ItemUsage", "PortDef", "AttributeUsage"
+/// The viewer expects a specific schema with `kind`, `definitionKind`, and `usageKind`
+/// fields to properly determine node types.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagramSymbol {
@@ -52,10 +52,16 @@ pub struct DiagramSymbol {
     /// Fully qualified name (e.g., "Package::Element")
     pub qualified_name: String,
 
-    /// Node type for rendering - MUST match NODE_TYPES values.
-    /// Format: "{Kind}Def" for definitions, "{Kind}Usage" for usages.
-    /// Examples: "PartDef", "ItemUsage", "PortDef"
-    pub node_type: String,
+    /// High-level kind: "Definition", "Usage", "Package", "Feature", "Classifier"
+    pub kind: String,
+
+    /// For definitions: "Part", "Port", "Action", etc.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub definition_kind: Option<String>,
+
+    /// For usages: "Part", "Port", "Action", etc.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage_kind: Option<String>,
 
     /// Parent's qualified name for containment hierarchy.
     /// Used by React Flow to create nested/grouped nodes.
@@ -145,48 +151,55 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
     let parent = extract_parent(&qualified_name);
     let typed_by = symbol.supertypes.first().map(|s| s.to_string());
 
-    let node_type = match symbol.kind {
+    // Determine high-level kind and specific sub-kind
+    let (kind, definition_kind, usage_kind) = match symbol.kind {
         // Definitions
-        SymbolKind::PartDef => "PartDef",
-        SymbolKind::ItemDef => "ItemDef",
-        SymbolKind::ActionDef => "ActionDef",
-        SymbolKind::PortDef => "PortDef",
-        SymbolKind::AttributeDef => "AttributeDef",
-        SymbolKind::ConnectionDef => "ConnectionDef",
-        SymbolKind::InterfaceDef => "InterfaceDef",
-        SymbolKind::AllocationDef => "AllocationDef",
-        SymbolKind::RequirementDef => "RequirementDef",
-        SymbolKind::ConstraintDef => "ConstraintDef",
-        SymbolKind::StateDef => "StateDef",
-        SymbolKind::CalculationDef => "CalculationDef",
-        SymbolKind::UseCaseDef => "UseCaseDef",
-        SymbolKind::AnalysisCaseDef => "AnalysisCaseDef",
-        SymbolKind::ConcernDef => "ConcernDef",
-        SymbolKind::ViewDef => "ViewDef",
-        SymbolKind::ViewpointDef => "ViewpointDef",
-        SymbolKind::RenderingDef => "RenderingDef",
-        SymbolKind::EnumerationDef => "EnumerationDef",
+        SymbolKind::PartDef => ("Definition", Some("Part"), None),
+        SymbolKind::ItemDef => ("Definition", Some("Item"), None),
+        SymbolKind::ActionDef => ("Definition", Some("Action"), None),
+        SymbolKind::PortDef => ("Definition", Some("Port"), None),
+        SymbolKind::AttributeDef => ("Definition", Some("Attribute"), None),
+        SymbolKind::ConnectionDef => ("Definition", Some("Connection"), None),
+        SymbolKind::InterfaceDef => ("Definition", Some("Interface"), None),
+        SymbolKind::AllocationDef => ("Definition", Some("Allocation"), None),
+        SymbolKind::RequirementDef => ("Definition", Some("Requirement"), None),
+        SymbolKind::ConstraintDef => ("Definition", Some("Constraint"), None),
+        SymbolKind::StateDef => ("Definition", Some("State"), None),
+        SymbolKind::CalculationDef => ("Definition", Some("Calculation"), None),
+        SymbolKind::UseCaseDef => ("Definition", Some("UseCase"), None),
+        SymbolKind::AnalysisCaseDef => ("Definition", Some("AnalysisCase"), None),
+        SymbolKind::ConcernDef => ("Definition", Some("Concern"), None),
+        SymbolKind::ViewDef => ("Definition", Some("View"), None),
+        SymbolKind::ViewpointDef => ("Definition", Some("Viewpoint"), None),
+        SymbolKind::RenderingDef => ("Definition", Some("Rendering"), None),
+        SymbolKind::EnumerationDef => ("Definition", Some("Enumeration"), None),
+        SymbolKind::MetaclassDef => ("Definition", Some("Metaclass"), None),
+        SymbolKind::InteractionDef => ("Definition", Some("Interaction"), None),
 
         // Usages
-        SymbolKind::PartUsage => "PartUsage",
-        SymbolKind::ItemUsage => "ItemUsage",
-        SymbolKind::ActionUsage => "ActionUsage",
-        SymbolKind::PortUsage => "PortUsage",
-        SymbolKind::AttributeUsage => "AttributeUsage",
-        SymbolKind::ConnectionUsage => "ConnectionUsage",
-        SymbolKind::InterfaceUsage => "InterfaceUsage",
-        SymbolKind::AllocationUsage => "AllocationUsage",
-        SymbolKind::RequirementUsage => "RequirementUsage",
-        SymbolKind::ConstraintUsage => "ConstraintUsage",
-        SymbolKind::StateUsage => "StateUsage",
-        SymbolKind::CalculationUsage => "CalculationUsage",
-        SymbolKind::ReferenceUsage => "ReferenceUsage",
-        SymbolKind::OccurrenceUsage => "OccurrenceUsage",
-        SymbolKind::FlowUsage => "FlowUsage",
+        SymbolKind::PartUsage => ("Usage", None, Some("Part")),
+        SymbolKind::ItemUsage => ("Usage", None, Some("Item")),
+        SymbolKind::ActionUsage => ("Usage", None, Some("Action")),
+        SymbolKind::PortUsage => ("Usage", None, Some("Port")),
+        SymbolKind::AttributeUsage => ("Usage", None, Some("Attribute")),
+        SymbolKind::ConnectionUsage => ("Usage", None, Some("Connection")),
+        SymbolKind::InterfaceUsage => ("Usage", None, Some("Interface")),
+        SymbolKind::AllocationUsage => ("Usage", None, Some("Allocation")),
+        SymbolKind::RequirementUsage => ("Usage", None, Some("Requirement")),
+        SymbolKind::ConstraintUsage => ("Usage", None, Some("Constraint")),
+        SymbolKind::StateUsage => ("Usage", None, Some("State")),
+        SymbolKind::CalculationUsage => ("Usage", None, Some("Calculation")),
+        SymbolKind::ReferenceUsage => ("Usage", None, Some("Reference")),
+        SymbolKind::OccurrenceUsage => ("Usage", None, Some("Occurrence")),
+        SymbolKind::FlowUsage => ("Usage", None, Some("Flow")),
+        SymbolKind::ViewUsage => ("Usage", None, Some("View")),
+        SymbolKind::ViewpointUsage => ("Usage", None, Some("Viewpoint")),
+        SymbolKind::RenderingUsage => ("Usage", None, Some("Rendering")),
 
         // Other
-        SymbolKind::Package => "Package",
-        SymbolKind::Alias
+        SymbolKind::Package => ("Package", None, None),
+        SymbolKind::ExposeRelationship
+        | SymbolKind::Alias
         | SymbolKind::Import
         | SymbolKind::Comment
         | SymbolKind::Dependency
@@ -198,7 +211,9 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
     Some(DiagramSymbol {
         name,
         qualified_name,
-        node_type: node_type.to_string(),
+        kind: kind.to_string(),
+        definition_kind: definition_kind.map(String::from),
+        usage_kind: usage_kind.map(String::from),
         parent,
         features: None,
         typed_by,
@@ -225,7 +240,9 @@ mod tests {
         let symbol = DiagramSymbol {
             name: "MyPart".to_string(),
             qualified_name: "Package::MyPart".to_string(),
-            node_type: "PartDef".to_string(),
+            kind: "Definition".to_string(),
+            definition_kind: Some("Part".to_string()),
+            usage_kind: None,
             parent: Some("Package".to_string()),
             features: Some(vec!["feature1".to_string()]),
             typed_by: None,
@@ -241,7 +258,7 @@ mod tests {
             json
         );
         assert!(
-            json.contains("\"nodeType\""),
+            json.contains("\"definitionKind\""),
             "Should use camelCase: {}",
             json
         );
@@ -256,7 +273,7 @@ mod tests {
             json
         );
         assert!(
-            !json.contains("\"node_type\""),
+            !json.contains("\"definition_kind\""),
             "Should NOT use snake_case: {}",
             json
         );
@@ -269,7 +286,9 @@ mod tests {
             symbols: vec![DiagramSymbol {
                 name: "Test".to_string(),
                 qualified_name: "Pkg::Test".to_string(),
-                node_type: "PartDef".to_string(),
+                kind: "Definition".to_string(),
+                definition_kind: Some("Part".to_string()),
+                usage_kind: None,
                 parent: Some("Pkg".to_string()),
                 features: None,
                 typed_by: None,
@@ -334,6 +353,7 @@ mod tests {
             name: "Vehicle".into(),
             short_name: None,
             qualified_name: "Pkg::Vehicle".into(),
+            element_id: "test-id-1".into(),
             kind: SymbolKind::PartDef,
             file: FileId::new(0),
             start_line: 0,
@@ -349,13 +369,22 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
+            metadata_annotations: Vec::new(),
+            is_abstract: false,
+            is_variation: false,
+            is_readonly: false,
+            is_derived: false,
+            is_parallel: false,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
 
         assert_eq!(diagram_symbol.name, "Vehicle");
         assert_eq!(diagram_symbol.qualified_name, "Pkg::Vehicle");
-        assert_eq!(diagram_symbol.node_type, "PartDef");
+        assert_eq!(diagram_symbol.kind, "Definition");
+        assert_eq!(diagram_symbol.definition_kind, Some("Part".to_string()));
+        assert_eq!(diagram_symbol.usage_kind, None);
         assert_eq!(diagram_symbol.parent, Some("Pkg".to_string()));
         assert!(diagram_symbol.typed_by.is_none());
     }
@@ -369,6 +398,7 @@ mod tests {
             name: "engine".into(),
             short_name: None,
             qualified_name: "Pkg::Vehicle::engine".into(),
+            element_id: "test-id-2".into(),
             kind: SymbolKind::PartUsage,
             file: FileId::new(0),
             start_line: 0,
@@ -384,13 +414,22 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
+            metadata_annotations: Vec::new(),
+            is_abstract: false,
+            is_variation: false,
+            is_readonly: false,
+            is_derived: false,
+            is_parallel: false,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
 
         assert_eq!(diagram_symbol.name, "engine");
         assert_eq!(diagram_symbol.qualified_name, "Pkg::Vehicle::engine");
-        assert_eq!(diagram_symbol.node_type, "PartUsage");
+        assert_eq!(diagram_symbol.kind, "Usage");
+        assert_eq!(diagram_symbol.definition_kind, None);
+        assert_eq!(diagram_symbol.usage_kind, Some("Part".to_string()));
         assert_eq!(diagram_symbol.parent, Some("Pkg::Vehicle".to_string()));
         assert_eq!(diagram_symbol.typed_by, Some("Engine".to_string()));
     }
@@ -404,6 +443,7 @@ mod tests {
             name: "MyPackage".into(),
             short_name: None,
             qualified_name: "Root::MyPackage".into(),
+            element_id: "test-id-3".into(),
             kind: SymbolKind::Package,
             file: FileId::new(0),
             start_line: 0,
@@ -419,13 +459,22 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
+            metadata_annotations: Vec::new(),
+            is_abstract: false,
+            is_variation: false,
+            is_readonly: false,
+            is_derived: false,
+            is_parallel: false,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
 
         assert_eq!(diagram_symbol.name, "MyPackage");
         assert_eq!(diagram_symbol.qualified_name, "Root::MyPackage");
-        assert_eq!(diagram_symbol.node_type, "Package");
+        assert_eq!(diagram_symbol.kind, "Package");
+        assert_eq!(diagram_symbol.definition_kind, None);
+        assert_eq!(diagram_symbol.usage_kind, None);
         assert_eq!(diagram_symbol.parent, Some("Root".to_string()));
     }
 
@@ -438,6 +487,7 @@ mod tests {
             name: "MyAlias".into(),
             short_name: None,
             qualified_name: "Pkg::MyAlias".into(),
+            element_id: "test-id-4".into(),
             kind: SymbolKind::Alias,
             file: FileId::new(0),
             start_line: 0,
@@ -453,6 +503,13 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
+            metadata_annotations: Vec::new(),
+            is_abstract: false,
+            is_variation: false,
+            is_readonly: false,
+            is_derived: false,
+            is_parallel: false,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
@@ -467,6 +524,7 @@ mod tests {
             name: "_import".into(),
             short_name: None,
             qualified_name: "Pkg::_import_Other::Thing".into(),
+            element_id: "test-id-5".into(),
             kind: SymbolKind::Import,
             file: FileId::new(0),
             start_line: 0,
@@ -482,15 +540,23 @@ mod tests {
             doc: None,
             type_refs: Vec::new(),
             is_public: false,
+            view_data: None,
+            metadata_annotations: Vec::new(),
+            is_abstract: false,
+            is_variation: false,
+            is_readonly: false,
+            is_derived: false,
+            is_parallel: false,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
     }
 
-    /// Test node_type values match what diagram-ui expects
+    /// Test that kind/definitionKind combine to form node types
     #[test]
-    fn test_node_type_format_for_definitions() {
-        // These are how we format definition kinds
+    fn test_definition_kind_format() {
+        // The viewer combines kind + definitionKind to form node types
+        // kind="Definition", definitionKind="Part" => "PartDef"
         assert_eq!(format!("{}Def", "Part"), "PartDef");
         assert_eq!(format!("{}Def", "Port"), "PortDef");
         assert_eq!(format!("{}Def", "Action"), "ActionDef");
@@ -498,8 +564,9 @@ mod tests {
     }
 
     #[test]
-    fn test_node_type_format_for_usages() {
-        // These are how we format usage kinds
+    fn test_usage_kind_format() {
+        // The viewer combines kind + usageKind to form node types
+        // kind="Usage", usageKind="Part" => "PartUsage"
         assert_eq!(format!("{}Usage", "Part"), "PartUsage");
         assert_eq!(format!("{}Usage", "Port"), "PortUsage");
         assert_eq!(format!("{}Usage", "Action"), "ActionUsage");

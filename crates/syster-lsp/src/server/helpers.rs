@@ -96,11 +96,3 @@ pub fn apply_text_edit(text: &str, range: &Range, new_text: &str) -> Result<Stri
 
     Ok(result)
 }
-
-/// Convert our Position to LSP Position
-pub fn position_to_lsp_position(pos: &syster::core::Position) -> Position {
-    Position {
-        line: pos.line as u32,
-        character: pos.column as u32,
-    }
-}

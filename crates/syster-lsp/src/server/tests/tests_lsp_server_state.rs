@@ -405,8 +405,6 @@ async fn test_hover_basic() {
         panic!("Expected markup content");
     };
 
-    eprintln!("Hover content: {}", content);
-
     assert!(
         content.contains("Vehicle"),
         "Hover should contain symbol name. Got: {content}"

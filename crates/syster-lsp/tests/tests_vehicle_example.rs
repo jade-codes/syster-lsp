@@ -30,10 +30,8 @@ fn test_vehicle_example_all_references_have_hover() {
 
     let lines: Vec<&str> = source.lines().collect();
 
-    // Load stdlib for proper resolution
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-
-    let mut server = LspServer::with_config(true, Some(stdlib_path));
+    // Use cached stdlib for fast test setup
+    let mut server = LspServer::with_cached_stdlib();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     server
@@ -71,6 +69,14 @@ fn test_vehicle_example_all_references_have_hover() {
 
     let mut all_refs: Vec<(String, String, u32, u32, u32)> = refs
         .into_iter()
+        // Filter out references from anonymous scopes (internal bookkeeping, not user-visible)
+        // These have source_symbol containing "<ref:" patterns like "Foo::<ref:bar#42@L0>"
+        .filter(|r| {
+            !r.source_symbol
+                .as_ref()
+                .map(|s| s.starts_with('<') || s.contains("::<"))
+                .unwrap_or(false)
+        })
         .map(|r| {
             (
                 r.target,
@@ -81,6 +87,14 @@ fn test_vehicle_example_all_references_have_hover() {
             )
         })
         .collect();
+
+    // Deduplicate by (target, line, col_start, col_end) - different containing symbols shouldn't count as different refs
+    all_refs.sort_by_key(|(target, _, line, col_start, col_end)| {
+        (target.clone(), *line, *col_start, *col_end)
+    });
+    all_refs.dedup_by(|(t1, _, l1, cs1, ce1), (t2, _, l2, cs2, ce2)| {
+        t1 == t2 && l1 == l2 && cs1 == cs2 && ce1 == ce2
+    });
 
     // Sort by line number for easier reading
     all_refs.sort_by_key(|(_, _, line, col, _)| (*line, *col));
@@ -127,6 +141,20 @@ fn test_vehicle_example_all_references_have_hover() {
                     || (is_simple_name && hover_content.contains(&format!("::{}", target)));
 
                 if is_simple_name && !resolved_to_target {
+                    // Debug: Print failing case details
+                    if failing_by_pattern.values().map(|v| v.len()).sum::<usize>() < 10 {
+                        println!(
+                            "[FAIL DEBUG] Line {}: target='{}' col {}-{}",
+                            line + 1,
+                            target,
+                            col_start,
+                            col_end
+                        );
+                        println!("[FAIL DEBUG]   Source: {}", source);
+                        println!("[FAIL DEBUG]   Line text: {}", line_text.trim());
+                        println!("[FAIL DEBUG]   Hover returned: {}", hover_content);
+                    }
+
                     // This is a simple name that didn't resolve - likely a problem
                     let failure = FailingReference {
                         line: *line,
@@ -145,6 +173,19 @@ fn test_vehicle_example_all_references_have_hover() {
                 }
             }
             None => {
+                // Debug: Print failing case with no hover
+                if failing_by_pattern.values().map(|v| v.len()).sum::<usize>() < 10 {
+                    println!(
+                        "[FAIL DEBUG - NO HOVER] Line {}: target='{}' col {}-{}",
+                        line + 1,
+                        target,
+                        col_start,
+                        col_end
+                    );
+                    println!("[FAIL DEBUG - NO HOVER]   Source: {}", source);
+                    println!("[FAIL DEBUG - NO HOVER]   Line text: {}", line_text.trim());
+                }
+
                 let failure = FailingReference {
                     line: *line,
                     col_start: *col_start,
@@ -279,10 +320,8 @@ fn test_vehicle_example_semantic_tokens() {
 
     let lines: Vec<&str> = source.lines().collect();
 
-    // Load stdlib for proper resolution
-    let stdlib_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sysml.library");
-
-    let mut server = LspServer::with_config(true, Some(stdlib_path));
+    // Use cached stdlib for fast test setup
+    let mut server = LspServer::with_cached_stdlib();
     let uri = Url::parse("file:///test.sysml").unwrap();
 
     server

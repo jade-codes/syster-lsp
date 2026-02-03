@@ -84,14 +84,17 @@ impl LspServer {
         analysis: &syster::ide::Analysis<'_>,
         qualified_name: &str,
     ) -> Vec<Location> {
-        analysis
+        let refs: Vec<_> = analysis
             .symbol_index()
             .all_symbols()
             .flat_map(|sym| {
                 sym.type_refs
                     .iter()
                     .flat_map(|trk| trk.as_refs())
-                    .filter(|tr| tr.target.as_ref() == qualified_name)
+                    .filter(|tr| {
+                        let t = tr.target.as_ref();
+                        t == qualified_name || t.starts_with(&format!("{}::", qualified_name))
+                    })
                     .filter_map(|tr| {
                         let path = analysis.get_file_path(sym.file)?;
                         let uri = Url::from_file_path(path).ok()?;
@@ -110,6 +113,7 @@ impl LspServer {
                         })
                     })
             })
-            .collect()
+            .collect();
+        refs
     }
 }

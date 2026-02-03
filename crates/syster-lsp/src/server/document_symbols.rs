@@ -124,7 +124,9 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::ViewDef
         | HirSymbolKind::ViewpointDef
         | HirSymbolKind::RenderingDef
-        | HirSymbolKind::EnumerationDef => SymbolKind::CLASS,
+        | HirSymbolKind::EnumerationDef
+        | HirSymbolKind::MetaclassDef
+        | HirSymbolKind::InteractionDef => SymbolKind::CLASS,
 
         // Usages are properties
         HirSymbolKind::PartUsage
@@ -141,8 +143,12 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::CalculationUsage
         | HirSymbolKind::ReferenceUsage
         | HirSymbolKind::OccurrenceUsage
-        | HirSymbolKind::FlowUsage => SymbolKind::PROPERTY,
+        | HirSymbolKind::FlowUsage
+        | HirSymbolKind::ViewUsage
+        | HirSymbolKind::ViewpointUsage
+        | HirSymbolKind::RenderingUsage => SymbolKind::PROPERTY,
 
+        HirSymbolKind::ExposeRelationship => SymbolKind::VARIABLE,
         HirSymbolKind::Alias => SymbolKind::VARIABLE,
         HirSymbolKind::Import => SymbolKind::NAMESPACE,
         HirSymbolKind::Comment => SymbolKind::STRING,

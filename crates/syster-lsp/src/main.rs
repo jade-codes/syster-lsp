@@ -20,7 +20,10 @@ use server::LspServer;
 use server::background_tasks::{debounce, events::ParseDocument};
 use server::diagram::GetDiagramRequest;
 use server::helpers::uri_to_path;
+#[cfg(feature = "interchange")]
+use server::interchange::{ExportModelRequest, ImportModelRequest};
 use server::type_info::TypeInfoRequest;
+use server::views::GetSysMLViewsRequest;
 
 /// Server state that owns the LspServer and client socket
 struct ServerState {
@@ -438,6 +441,29 @@ impl ServerState {
         router.request::<TypeInfoRequest, _>(|state, params| {
             let uri = Url::parse(&params.uri).ok();
             let result = uri.and_then(|u| state.server.get_type_info(&u, params.position));
+            Box::pin(async move { Ok(result) })
+        });
+
+        // Custom request: syster/getSysMLViews
+        // Discovers and applies user-defined SysML v2 Views
+        router.request::<GetSysMLViewsRequest, _>(|state, params| {
+            let result = state.server.get_sysml_views(&params);
+            Box::pin(async move { Ok(result) })
+        });
+
+        // Custom request: syster/exportModel
+        // Exports the workspace to XMI, KPAR, or JSON-LD format
+        #[cfg(feature = "interchange")]
+        router.request::<ExportModelRequest, _>(|state, params| {
+            let result = state.server.export_model(&params);
+            Box::pin(async move { Ok(result) })
+        });
+
+        // Custom request: syster/importModel
+        // Imports and validates a model from XMI, KPAR, or JSON-LD
+        #[cfg(feature = "interchange")]
+        router.request::<ImportModelRequest, _>(|state, params| {
+            let result = state.server.import_model(&params);
             Box::pin(async move { Ok(result) })
         });
 
