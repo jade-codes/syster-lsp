@@ -41,7 +41,6 @@ fn test_stdlib_loads_view_definitions() {
 }
 
 #[test]
-#[ignore = "Standard views require ViewDef symbols which may vary with syster-base version"]
 fn test_get_sysml_views_returns_standard_views() {
     let mut server = create_server_with_stdlib();
 

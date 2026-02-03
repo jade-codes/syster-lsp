@@ -167,21 +167,17 @@ impl LspServer {
         for symbol in symbol_index.all_symbols() {
             // Check if this is a ViewDefinition - use SymbolKind instead of view_data
             if matches!(symbol.kind, syster::hir::SymbolKind::ViewDef) {
-                // Extract the simple name from qualified name (last segment)
-                let simple_name = symbol
-                    .qualified_name
-                    .rsplit("::")
-                    .next()
-                    .unwrap_or(symbol.name.as_ref());
+                // Get the short name (e.g., "gv" from `view def <gv> GeneralView`)
+                let short_name = symbol.short_name.as_deref().unwrap_or("");
 
                 info!(
-                    "[Views] Checking ViewDef: qn={}, simple_name={}",
-                    symbol.qualified_name, simple_name
+                    "[Views] Checking ViewDef: qn={}, name={}, short_name={}",
+                    symbol.qualified_name, symbol.name, short_name
                 );
 
-                // Only include standard views - match by simple name
+                // Only include standard views - match by short name
                 if let Some((_, display_name)) =
-                    STANDARD_VIEWS.iter().find(|(name, _)| *name == simple_name)
+                    STANDARD_VIEWS.iter().find(|(sn, _)| *sn == short_name)
                 {
                     info!("[Views] MATCHED standard view: {}", display_name);
 
