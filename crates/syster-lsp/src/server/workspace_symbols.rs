@@ -96,6 +96,7 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::ViewpointUsage
         | HirSymbolKind::RenderingUsage => SymbolKind::PROPERTY,
 
+        HirSymbolKind::ExposeRelationship => SymbolKind::VARIABLE,
         HirSymbolKind::Alias => SymbolKind::VARIABLE,
         HirSymbolKind::Import => SymbolKind::NAMESPACE,
         HirSymbolKind::ExposeRelationship => SymbolKind::NAMESPACE,
