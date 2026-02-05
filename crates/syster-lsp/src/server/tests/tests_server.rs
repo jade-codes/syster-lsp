@@ -2235,7 +2235,7 @@ fn test_cross_file_stdlib_reference_resolution() {
 
     // Check specifically for attribute definitions
     let attr_count = server
-        .find_symbols(|s| matches!(s.kind, syster::hir::SymbolKind::AttributeDef))
+        .find_symbols(|s| matches!(s.kind, syster::hir::SymbolKind::AttributeDefinition))
         .len();
     let _ = attr_count; // Suppress unused warning
 

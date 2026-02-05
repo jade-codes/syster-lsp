@@ -5,6 +5,25 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1-alpha] - 2026-02-05
+
+### Changed
+
+- **syster-base**: Updated to v0.3.1-alpha
+  - Updated SymbolKind enum variants to use full names (`*Definition` instead of `*Def`)
+  - `FlowUsage` renamed to `FlowConnectionUsage`
+  - Added new KerML types: `DataType`, `Class`, `Structure`, `Behavior`, `Function`, `Association`
+  - Added `TransitionUsage` for state machine transitions
+  - New HirSymbol fields: `direction` and `multiplicity` for ports/parameters
+
+### Fixed
+
+- **Symbol Mappings**: Updated all SymbolKind references throughout codebase:
+  - `document_symbols.rs`: Updated `convert_symbol_kind()` for LSP symbol types
+  - `workspace_symbols.rs`: Updated `convert_symbol_kind()` for workspace search
+  - `diagram.rs`: Updated symbol kind matching for diagram generation
+  - `views.rs`: Updated view filtering for standard SysML v2 views
+
 ## [0.3.0-alpha] - 2026-02-03
 
 ### Added

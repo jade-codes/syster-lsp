@@ -130,12 +130,12 @@ impl LspServer {
             );
         }
 
-        // Debug: Find ViewDef symbols specifically
+        // Debug: Find ViewDefinition symbols specifically
         let view_def_symbols: Vec<_> = symbol_index
             .all_symbols()
-            .filter(|s| matches!(s.kind, syster::hir::SymbolKind::ViewDef))
+            .filter(|s| matches!(s.kind, syster::hir::SymbolKind::ViewDefinition))
             .collect();
-        info!("[Views] ViewDef kind symbols: {}", view_def_symbols.len());
+        info!("[Views] ViewDefinition kind symbols: {}", view_def_symbols.len());
 
         for s in &view_def_symbols {
             info!(
@@ -166,7 +166,7 @@ impl LspServer {
 
         for symbol in symbol_index.all_symbols() {
             // Check if this is a ViewDefinition - use SymbolKind instead of view_data
-            if matches!(symbol.kind, syster::hir::SymbolKind::ViewDef) {
+            if matches!(symbol.kind, syster::hir::SymbolKind::ViewDefinition) {
                 // Get the short name (e.g., "gv" from `view def <gv> GeneralView`)
                 let short_name = symbol.short_name.as_deref().unwrap_or("");
 
@@ -389,7 +389,7 @@ fn filter_symbols_for_view(symbols: &[&syster::hir::HirSymbol], view_name: &str)
                         | SymbolKind::InterfaceUsage
                         // Connections/flows that become edges (filtered out as nodes in webview)
                         | SymbolKind::ConnectionUsage
-                        | SymbolKind::FlowUsage
+                        | SymbolKind::FlowConnectionUsage
                         | SymbolKind::AllocationUsage
                 ),
 
@@ -399,12 +399,12 @@ fn filter_symbols_for_view(symbols: &[&syster::hir::HirSymbol], view_name: &str)
                     symbol.kind,
                     // Actions
                     SymbolKind::ActionUsage
-                        | SymbolKind::ActionDef
+                        | SymbolKind::ActionDefinition
                         // Parameters
                         | SymbolKind::AttributeUsage
                         | SymbolKind::ReferenceUsage
                         // Flow connections
-                        | SymbolKind::FlowUsage
+                        | SymbolKind::FlowConnectionUsage
                         | SymbolKind::ConnectionUsage
                         // Items being transferred
                         | SymbolKind::ItemUsage
@@ -416,7 +416,7 @@ fn filter_symbols_for_view(symbols: &[&syster::hir::HirSymbol], view_name: &str)
                     symbol.kind,
                     // States
                     SymbolKind::StateUsage
-                        | SymbolKind::StateDef
+                        | SymbolKind::StateDefinition
                         // Entry/do/exit are actions
                         | SymbolKind::ActionUsage
                         // Transitions are succession usages
@@ -433,7 +433,7 @@ fn filter_symbols_for_view(symbols: &[&syster::hir::HirSymbol], view_name: &str)
                         // Event occurrences (occurrence usages)
                         | SymbolKind::OccurrenceUsage
                         // Messages
-                        | SymbolKind::FlowUsage
+                        | SymbolKind::FlowConnectionUsage
                         | SymbolKind::ActionUsage
                 ),
 
@@ -443,20 +443,20 @@ fn filter_symbols_for_view(symbols: &[&syster::hir::HirSymbol], view_name: &str)
                     symbol.kind,
                     // All structural elements
                     SymbolKind::Package
-                        | SymbolKind::PartDef
+                        | SymbolKind::PartDefinition
                         | SymbolKind::PartUsage
-                        | SymbolKind::ItemDef
+                        | SymbolKind::ItemDefinition
                         | SymbolKind::ItemUsage
-                        | SymbolKind::ActionDef
+                        | SymbolKind::ActionDefinition
                         | SymbolKind::ActionUsage
-                        | SymbolKind::StateDef
+                        | SymbolKind::StateDefinition
                         | SymbolKind::StateUsage
-                        | SymbolKind::RequirementDef
+                        | SymbolKind::RequirementDefinition
                         | SymbolKind::RequirementUsage
-                        | SymbolKind::ConstraintDef
+                        | SymbolKind::ConstraintDefinition
                         | SymbolKind::ConstraintUsage
-                        | SymbolKind::ViewDef
-                        | SymbolKind::ViewpointDef
+                        | SymbolKind::ViewDefinition
+                        | SymbolKind::ViewpointDefinition
                 ),
 
                 // GridView: tabular/matrix view - show everything for now

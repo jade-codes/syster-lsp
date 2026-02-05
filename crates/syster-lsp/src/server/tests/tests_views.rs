@@ -22,8 +22,8 @@ fn test_stdlib_loads_view_definitions() {
     println!("Total symbols: {}", server.symbol_count());
     println!("Total files: {}", server.loaded_file_count());
 
-    // Find all ViewDef symbols
-    let view_defs = server.find_symbols(|s| matches!(s.kind, SymbolKind::ViewDef));
+    // Find all ViewDefinition symbols
+    let view_defs = server.find_symbols(|s| matches!(s.kind, SymbolKind::ViewDefinition));
 
     println!("\nViewDef symbols found: {}", view_defs.len());
     for view in &view_defs {
@@ -93,8 +93,8 @@ fn test_get_sysml_views_returns_standard_views() {
 fn test_view_definitions_have_correct_qualified_names() {
     let mut server = create_server_with_stdlib();
 
-    // Find all ViewDef symbols
-    let view_defs = server.find_symbols(|s| matches!(s.kind, SymbolKind::ViewDef));
+    // Find all ViewDefinition symbols
+    let view_defs = server.find_symbols(|s| matches!(s.kind, SymbolKind::ViewDefinition));
 
     // Print what we actually have
     println!("ViewDef symbols:");

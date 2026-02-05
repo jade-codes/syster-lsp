@@ -154,27 +154,33 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
     // Determine high-level kind and specific sub-kind
     let (kind, definition_kind, usage_kind) = match symbol.kind {
         // Definitions
-        SymbolKind::PartDef => ("Definition", Some("Part"), None),
-        SymbolKind::ItemDef => ("Definition", Some("Item"), None),
-        SymbolKind::ActionDef => ("Definition", Some("Action"), None),
-        SymbolKind::PortDef => ("Definition", Some("Port"), None),
-        SymbolKind::AttributeDef => ("Definition", Some("Attribute"), None),
-        SymbolKind::ConnectionDef => ("Definition", Some("Connection"), None),
-        SymbolKind::InterfaceDef => ("Definition", Some("Interface"), None),
-        SymbolKind::AllocationDef => ("Definition", Some("Allocation"), None),
-        SymbolKind::RequirementDef => ("Definition", Some("Requirement"), None),
-        SymbolKind::ConstraintDef => ("Definition", Some("Constraint"), None),
-        SymbolKind::StateDef => ("Definition", Some("State"), None),
-        SymbolKind::CalculationDef => ("Definition", Some("Calculation"), None),
-        SymbolKind::UseCaseDef => ("Definition", Some("UseCase"), None),
-        SymbolKind::AnalysisCaseDef => ("Definition", Some("AnalysisCase"), None),
-        SymbolKind::ConcernDef => ("Definition", Some("Concern"), None),
-        SymbolKind::ViewDef => ("Definition", Some("View"), None),
-        SymbolKind::ViewpointDef => ("Definition", Some("Viewpoint"), None),
-        SymbolKind::RenderingDef => ("Definition", Some("Rendering"), None),
-        SymbolKind::EnumerationDef => ("Definition", Some("Enumeration"), None),
-        SymbolKind::MetaclassDef => ("Definition", Some("Metaclass"), None),
-        SymbolKind::InteractionDef => ("Definition", Some("Interaction"), None),
+        SymbolKind::PartDefinition => ("Definition", Some("Part"), None),
+        SymbolKind::ItemDefinition => ("Definition", Some("Item"), None),
+        SymbolKind::ActionDefinition => ("Definition", Some("Action"), None),
+        SymbolKind::PortDefinition => ("Definition", Some("Port"), None),
+        SymbolKind::AttributeDefinition => ("Definition", Some("Attribute"), None),
+        SymbolKind::ConnectionDefinition => ("Definition", Some("Connection"), None),
+        SymbolKind::InterfaceDefinition => ("Definition", Some("Interface"), None),
+        SymbolKind::AllocationDefinition => ("Definition", Some("Allocation"), None),
+        SymbolKind::RequirementDefinition => ("Definition", Some("Requirement"), None),
+        SymbolKind::ConstraintDefinition => ("Definition", Some("Constraint"), None),
+        SymbolKind::StateDefinition => ("Definition", Some("State"), None),
+        SymbolKind::CalculationDefinition => ("Definition", Some("Calculation"), None),
+        SymbolKind::UseCaseDefinition => ("Definition", Some("UseCase"), None),
+        SymbolKind::AnalysisCaseDefinition => ("Definition", Some("AnalysisCase"), None),
+        SymbolKind::ConcernDefinition => ("Definition", Some("Concern"), None),
+        SymbolKind::ViewDefinition => ("Definition", Some("View"), None),
+        SymbolKind::ViewpointDefinition => ("Definition", Some("Viewpoint"), None),
+        SymbolKind::RenderingDefinition => ("Definition", Some("Rendering"), None),
+        SymbolKind::EnumerationDefinition => ("Definition", Some("Enumeration"), None),
+        SymbolKind::MetadataDefinition => ("Definition", Some("Metadata"), None),
+        SymbolKind::Interaction => ("Definition", Some("Interaction"), None),
+        SymbolKind::DataType => ("Definition", Some("DataType"), None),
+        SymbolKind::Class => ("Definition", Some("Class"), None),
+        SymbolKind::Structure => ("Definition", Some("Structure"), None),
+        SymbolKind::Behavior => ("Definition", Some("Behavior"), None),
+        SymbolKind::Function => ("Definition", Some("Function"), None),
+        SymbolKind::Association => ("Definition", Some("Association"), None),
 
         // Usages
         SymbolKind::PartUsage => ("Usage", None, Some("Part")),
@@ -188,10 +194,11 @@ fn convert_symbol_to_diagram(symbol: &HirSymbol) -> Option<DiagramSymbol> {
         SymbolKind::RequirementUsage => ("Usage", None, Some("Requirement")),
         SymbolKind::ConstraintUsage => ("Usage", None, Some("Constraint")),
         SymbolKind::StateUsage => ("Usage", None, Some("State")),
+        SymbolKind::TransitionUsage => ("Usage", None, Some("Transition")),
         SymbolKind::CalculationUsage => ("Usage", None, Some("Calculation")),
         SymbolKind::ReferenceUsage => ("Usage", None, Some("Reference")),
         SymbolKind::OccurrenceUsage => ("Usage", None, Some("Occurrence")),
-        SymbolKind::FlowUsage => ("Usage", None, Some("Flow")),
+        SymbolKind::FlowConnectionUsage => ("Usage", None, Some("Flow")),
         SymbolKind::ViewUsage => ("Usage", None, Some("View")),
         SymbolKind::ViewpointUsage => ("Usage", None, Some("Viewpoint")),
         SymbolKind::RenderingUsage => ("Usage", None, Some("Rendering")),
@@ -354,7 +361,7 @@ mod tests {
             short_name: None,
             qualified_name: "Pkg::Vehicle".into(),
             element_id: "test-id-1".into(),
-            kind: SymbolKind::PartDef,
+            kind: SymbolKind::PartDefinition,
             file: FileId::new(0),
             start_line: 0,
             start_col: 0,
@@ -376,6 +383,8 @@ mod tests {
             is_readonly: false,
             is_derived: false,
             is_parallel: false,
+            direction: None,
+            multiplicity: None,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -421,6 +430,8 @@ mod tests {
             is_readonly: false,
             is_derived: false,
             is_parallel: false,
+            direction: None,
+            multiplicity: None,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -466,6 +477,8 @@ mod tests {
             is_readonly: false,
             is_derived: false,
             is_parallel: false,
+            direction: None,
+            multiplicity: None,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -510,6 +523,8 @@ mod tests {
             is_readonly: false,
             is_derived: false,
             is_parallel: false,
+            direction: None,
+            multiplicity: None,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
@@ -547,6 +562,8 @@ mod tests {
             is_readonly: false,
             is_derived: false,
             is_parallel: false,
+            direction: None,
+            multiplicity: None,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());

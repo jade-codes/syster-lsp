@@ -106,27 +106,33 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         HirSymbolKind::Package => SymbolKind::NAMESPACE,
 
         // Definitions are classes
-        HirSymbolKind::PartDef
-        | HirSymbolKind::ItemDef
-        | HirSymbolKind::ActionDef
-        | HirSymbolKind::PortDef
-        | HirSymbolKind::AttributeDef
-        | HirSymbolKind::ConnectionDef
-        | HirSymbolKind::InterfaceDef
-        | HirSymbolKind::AllocationDef
-        | HirSymbolKind::RequirementDef
-        | HirSymbolKind::ConstraintDef
-        | HirSymbolKind::StateDef
-        | HirSymbolKind::CalculationDef
-        | HirSymbolKind::UseCaseDef
-        | HirSymbolKind::AnalysisCaseDef
-        | HirSymbolKind::ConcernDef
-        | HirSymbolKind::ViewDef
-        | HirSymbolKind::ViewpointDef
-        | HirSymbolKind::RenderingDef
-        | HirSymbolKind::EnumerationDef
-        | HirSymbolKind::MetaclassDef
-        | HirSymbolKind::InteractionDef => SymbolKind::CLASS,
+        HirSymbolKind::PartDefinition
+        | HirSymbolKind::ItemDefinition
+        | HirSymbolKind::ActionDefinition
+        | HirSymbolKind::PortDefinition
+        | HirSymbolKind::AttributeDefinition
+        | HirSymbolKind::ConnectionDefinition
+        | HirSymbolKind::InterfaceDefinition
+        | HirSymbolKind::AllocationDefinition
+        | HirSymbolKind::RequirementDefinition
+        | HirSymbolKind::ConstraintDefinition
+        | HirSymbolKind::StateDefinition
+        | HirSymbolKind::CalculationDefinition
+        | HirSymbolKind::UseCaseDefinition
+        | HirSymbolKind::AnalysisCaseDefinition
+        | HirSymbolKind::ConcernDefinition
+        | HirSymbolKind::ViewDefinition
+        | HirSymbolKind::ViewpointDefinition
+        | HirSymbolKind::RenderingDefinition
+        | HirSymbolKind::EnumerationDefinition
+        | HirSymbolKind::MetadataDefinition
+        | HirSymbolKind::Interaction
+        | HirSymbolKind::DataType
+        | HirSymbolKind::Class
+        | HirSymbolKind::Structure
+        | HirSymbolKind::Behavior
+        | HirSymbolKind::Function
+        | HirSymbolKind::Association => SymbolKind::CLASS,
 
         // Usages are properties
         HirSymbolKind::PartUsage
@@ -140,10 +146,11 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::RequirementUsage
         | HirSymbolKind::ConstraintUsage
         | HirSymbolKind::StateUsage
+        | HirSymbolKind::TransitionUsage
         | HirSymbolKind::CalculationUsage
         | HirSymbolKind::ReferenceUsage
         | HirSymbolKind::OccurrenceUsage
-        | HirSymbolKind::FlowUsage
+        | HirSymbolKind::FlowConnectionUsage
         | HirSymbolKind::ViewUsage
         | HirSymbolKind::ViewpointUsage
         | HirSymbolKind::RenderingUsage => SymbolKind::PROPERTY,
