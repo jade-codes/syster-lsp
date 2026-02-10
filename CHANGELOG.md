@@ -5,6 +5,16 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3-alpha] - 2026-02-10
+
+### Fixed
+
+- **Feature Chain Hover Resolution**: Hover on feature chains like `takePicture.focus` in perform/exhibit/include statements now correctly resolves to the target member
+
+### Changed
+
+- **syster-base**: Updated to v0.3.3-alpha (feature chain hover fix)
+
 ## [0.3.1-alpha] - 2026-02-05
 
 ### Changed
