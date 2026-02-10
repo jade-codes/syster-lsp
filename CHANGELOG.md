@@ -5,6 +5,18 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4-alpha] - 2026-02-10
+
+### Changed
+
+- **syster-base**: Updated to v0.3.4-alpha
+  - Fixed visibility map inheritance to avoid self-references in redefining symbols
+  - Fixed root-level import resolution
+  - Fixed connection def implicit supertype (BinaryConnection)
+  - Optimized scope resolution performance from O(d²) to O(n)
+  - Simplified visibility architecture using scope-chain pattern
+  - Reduced stdlib semantic errors to 0
+
 ## [0.3.3-alpha] - 2026-02-10
 
 ### Fixed
