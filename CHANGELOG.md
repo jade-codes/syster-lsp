@@ -5,6 +5,15 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5-alpha] - 2026-02-11
+
+### Changed
+
+- **syster-base**: Updated to v0.3.5-alpha
+  - Skip validation for `that` contextual keyword in feature chains
+  - Prevents false positive "Undefined member 'that'" errors
+  - Maintains zero stdlib semantic errors
+
 ## [0.3.4-alpha] - 2026-02-10
 
 ### Changed

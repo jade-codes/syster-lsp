@@ -357,8 +357,33 @@ fn test_vehicle_example_semantic_tokens() {
 
     println!("Total semantic tokens: {}\n", decoded.len());
 
+    // Print tokens on lines 40-70 (state machine area)
+    println!("Tokens on lines 40-70 (state machine area):");
+    for (line, col, len, tt) in decoded.iter().filter(|(l, _, _, _)| *l >= 40 && *l <= 70) {
+        let type_name = match tt {
+            0 => "Namespace",
+            1 => "Type",
+            2 => "Variable",
+            3 => "Property",
+            4 => "Keyword",
+            _ => "Unknown",
+        };
+        let source_line = lines.get(*line as usize).unwrap_or(&"");
+        let start = *col as usize;
+        let end = (start + *len as usize).min(source_line.len());
+        let covered_text = if start < source_line.len() {
+            &source_line[start..end]
+        } else {
+            "<out of range>"
+        };
+        println!(
+            "  Line {:3} col {:3} len {:3} {:10} '{}'",
+            line, col, len, type_name, covered_text
+        );
+    }
+
     // Print all tokens on the first 20 lines to see what's happening
-    println!("Tokens on lines 0-20:");
+    println!("\nTokens on lines 0-20:");
     for (line, col, len, tt) in decoded.iter().filter(|(l, _, _, _)| *l <= 20) {
         let type_name = match tt {
             0 => "Namespace",
@@ -454,4 +479,89 @@ fn test_vehicle_example_semantic_tokens() {
         col
     );
     assert_eq!(*len, 18, "SimpleVehicleModel has 18 chars, got {}", len);
+
+    // Helper to find token covering a specific position
+    let find_token_at = |target_line: u32, target_col: u32| -> Option<(u32, u32, u32, u32)> {
+        decoded.iter()
+            .find(|(l, c, len, _)| *l == target_line && *c <= target_col && target_col < *c + *len)
+            .copied()
+    };
+
+    // Helper to assert a token exists at a specific position with expected text
+    let assert_token_at = |line_num: u32, expected_col: u32, expected_text: &str, desc: &str| {
+        let source_line = lines.get(line_num as usize).unwrap_or(&"");
+        let tokens_on_line: Vec<_> = decoded.iter().filter(|(l, _, _, _)| *l == line_num).collect();
+        
+        // Find token at expected column
+        let token = tokens_on_line.iter().find(|(_, col, _, _)| *col == expected_col);
+        
+        match token {
+            Some((_, col, len, _)) => {
+                let start = *col as usize;
+                let end = (start + *len as usize).min(source_line.len());
+                let actual_text = if start < source_line.len() { &source_line[start..end] } else { "" };
+                assert_eq!(
+                    actual_text, expected_text,
+                    "{}: expected '{}' at line {} col {}, got '{}' (len={})",
+                    desc, expected_text, line_num, expected_col, actual_text, len
+                );
+            }
+            None => {
+                let available: Vec<String> = tokens_on_line.iter().map(|(_, col, len, _)| {
+                    let start = *col as usize;
+                    let end = (start + *len as usize).min(source_line.len());
+                    let text = if start < source_line.len() { &source_line[start..end] } else { "<oor>" };
+                    format!("col{}:'{}' (len={})", col, text, len)
+                }).collect();
+                panic!(
+                    "{}: no token at line {} col {} for '{}'. Line has: [{}]\n  Source: '{}'",
+                    desc, line_num, expected_col, expected_text, available.join(", "), source_line
+                );
+            }
+        }
+    };
+
+    // =========================================================================
+    // POSITION VALIDATION TESTS
+    // These tests verify exact token positions for specific language constructs
+    // =========================================================================
+    
+    // Line 41 (0-indexed = 40): "                exhibit state vehicleStates parallel {"
+    // Count: 16 spaces + "exhibit state " (14) = 30, then "vehicleStates" (13 chars) at col 30
+    assert_token_at(40, 30, "vehicleStates", "exhibit state name");
+    
+    // Line 42: "                    ref controller : VehicleController;"
+    // 20 spaces + "ref " (4) = 24, "controller" at col 24
+    assert_token_at(41, 24, "controller", "ref usage name");
+    // VehicleController type at col 38 (20 + "ref controller : " = 37... let's calculate)
+    // "                    ref controller : VehicleController;"
+    //  20 spaces + "ref controller : " = 20 + 17 = 37
+    assert_token_at(41, 37, "VehicleController", "ref usage type");
+    
+    // Line 43: "                    state operatingStates {"
+    // 20 spaces + "state " (6) = 26, "operatingStates" at col 26
+    assert_token_at(42, 26, "operatingStates", "state usage name");
+    
+    // Line 51 (0-indexed = 50): "                            constraint {electricalPower<=500[W]}"
+    // Inside constraint: electricalPower starts at col 40 (after "constraint {")
+    // 28 spaces + "constraint {" = 40
+    // Note: electricalPower is 15 chars
+    assert_token_at(50, 40, "electricalPower", "constraint expression reference");
+    
+    // Line 58: "                            accept ignitionCmd:IgnitionCmd via ignitionCmdPort"
+    // 28 spaces + "accept " = 35, "ignitionCmd" at col 35 (11 chars)
+    assert_token_at(57, 35, "ignitionCmd", "accept payload name");
+    // IgnitionCmd type at col 47 (35 + 11 + 1 colon = 47)
+    assert_token_at(57, 47, "IgnitionCmd", "accept payload type");
+    // ignitionCmdPort at end: 28 + "accept ignitionCmd:IgnitionCmd via " = 28 + 35 = 63
+    assert_token_at(57, 63, "ignitionCmdPort", "accept via port");
+    
+    // Line 59: "                                if ignitionCmd.ignitionOnOff==IgnitionOnOff::on and brakePedalDepressed"
+    // This line has a feature chain: ignitionCmd.ignitionOnOff
+    // 32 spaces + "if " = 35, "ignitionCmd" at col 35
+    assert_token_at(58, 35, "ignitionCmd", "if condition - chain first part");
+    // ".ignitionOnOff" - the dot is at 46, so ignitionOnOff starts at 47
+    assert_token_at(58, 47, "ignitionOnOff", "if condition - chain second part");
+    
+    println!("\n✓ All position validation tests passed!");
 }
