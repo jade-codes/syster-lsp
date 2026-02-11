@@ -45,12 +45,12 @@ impl LspServer {
                     diagnostics.push(Diagnostic {
                         range: Range {
                             start: Position {
-                                line: diag.start_line,
-                                character: diag.start_col,
+                                line: diag.span.start.line,
+                                character: diag.span.start.column,
                             },
                             end: Position {
-                                line: diag.end_line,
-                                character: diag.end_col,
+                                line: diag.span.end.line,
+                                character: diag.span.end.column,
                             },
                         },
                         severity: Some(hir_severity_to_lsp(diag.severity)),

@@ -67,7 +67,7 @@ impl LspServer {
             && let Some(path) = analysis.get_file_path(symbol.file)
             && let Ok(uri) = Url::from_file_path(path)
         {
-            let display_line = symbol.start_line + 1;
+            let display_line = symbol.span.start.line + 1;
             let link = format!("[`{qualified_name}`]({uri}#L{display_line})");
 
             // Replace the backtick-quoted qualified name with a link
@@ -176,7 +176,7 @@ impl LspServer {
                     .filter(|tr| {
                         tr.target.as_ref() == qualified_name || tr.target.as_ref() == simple_name
                     })
-                    .map(move |tr| (sym.file, tr.start_line, tr.start_col))
+                    .map(move |tr| (sym.file, tr.span.start.line, tr.span.start.column))
             })
             .collect();
 

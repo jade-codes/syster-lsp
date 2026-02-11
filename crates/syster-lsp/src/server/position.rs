@@ -24,12 +24,12 @@ impl LspServer {
                 {
                     let range = Range {
                         start: Position {
-                            line: type_ref.start_line,
-                            character: type_ref.start_col,
+                            line: type_ref.span.start.line,
+                            character: type_ref.span.start.column,
                         },
                         end: Position {
-                            line: type_ref.end_line,
-                            character: type_ref.end_col,
+                            line: type_ref.span.end.line,
+                            character: type_ref.span.end.column,
                         },
                     };
                     // Return the target of the type ref
@@ -41,21 +41,21 @@ impl LspServer {
         // Then check if cursor is on a symbol definition
         for sym in analysis.symbol_index().symbols_in_file(file_id) {
             if contains_position(
-                sym.start_line,
-                sym.start_col,
-                sym.end_line,
-                sym.end_col,
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
                 position.line,
                 position.character,
             ) {
                 let range = Range {
                     start: Position {
-                        line: sym.start_line,
-                        character: sym.start_col,
+                        line: sym.span.start.line,
+                        character: sym.span.start.column,
                     },
                     end: Position {
-                        line: sym.end_line,
-                        character: sym.end_col,
+                        line: sym.span.end.line,
+                        character: sym.span.end.column,
                     },
                 };
                 return Some((sym.qualified_name.to_string(), range));

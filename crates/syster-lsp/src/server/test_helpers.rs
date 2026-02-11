@@ -9,6 +9,7 @@
 
 use crate::server::LspServer;
 use std::path::PathBuf;
+use syster::base::Span;
 use syster::hir::{HirSymbol, ResolveResult, Resolver, SymbolKind, TypeRef};
 
 /// Create an LspServer without stdlib (fast, for most unit tests)
@@ -127,6 +128,7 @@ pub struct SymbolSnapshot {
     pub name: String,
     pub qualified_name: String,
     pub kind: SymbolKind,
+    pub span: Span,
     pub start_line: u32,
     pub start_col: u32,
     pub end_line: u32,
@@ -142,10 +144,11 @@ impl From<&HirSymbol> for SymbolSnapshot {
             name: sym.name.to_string(),
             qualified_name: sym.qualified_name.to_string(),
             kind: sym.kind,
-            start_line: sym.start_line,
-            start_col: sym.start_col,
-            end_line: sym.end_line,
-            end_col: sym.end_col,
+            span: sym.span,
+            start_line: sym.span.start.line,
+            start_col: sym.span.start.column,
+            end_line: sym.span.end.line,
+            end_col: sym.span.end.column,
             supertypes: sym.supertypes.iter().map(|s| s.to_string()).collect(),
             doc: sym.doc.as_ref().map(|d| d.to_string()),
             type_refs: sym
@@ -176,10 +179,10 @@ impl From<&TypeRef> for TypeRefSnapshot {
     fn from(tr: &TypeRef) -> Self {
         Self {
             target: tr.target.to_string(),
-            start_line: tr.start_line,
-            start_col: tr.start_col,
-            end_line: tr.end_line,
-            end_col: tr.end_col,
+            start_line: tr.span.start.line,
+            start_col: tr.span.start.column,
+            end_line: tr.span.end.line,
+            end_col: tr.span.end.column,
             source_symbol: None,
             file_path: None,
         }

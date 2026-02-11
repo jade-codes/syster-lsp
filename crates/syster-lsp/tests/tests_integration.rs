@@ -876,7 +876,7 @@ fn test_hover_output_temperature_difference_value() {
     let sym = symbol.unwrap();
 
     // Generate the actual hover output using the IDE layer
-    let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
+    let hover_result = analysis.hover(sym.file, sym.span.start.line, sym.span.start.column);
     assert!(hover_result.is_some(), "Should get hover result");
     let hover = hover_result.unwrap();
 
@@ -924,7 +924,7 @@ fn test_hover_output_celsius_temperature_value() {
     let sym = symbol.unwrap();
 
     // Generate the actual hover output using the IDE layer
-    let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
+    let hover_result = analysis.hover(sym.file, sym.span.start.line, sym.span.start.column);
     assert!(hover_result.is_some(), "Should get hover result");
     let hover = hover_result.unwrap();
 
@@ -977,7 +977,8 @@ fn test_hover_at_position_temperature_difference_value() {
 
     // Now generate hover for each and check
     for sym in &matching_symbols {
-        let hover_result = analysis.hover(sym.file, sym.start_line, sym.start_col);
+        let hover_result =
+            analysis.hover(sym.file, sym.span.start.line, sym.span.start.column);
         assert!(
             hover_result.is_some(),
             "Should get hover for {}",
@@ -2283,7 +2284,7 @@ part def Camera {
     for sym in server.all_symbols() {
         println!(
             "  {} (line {}-{})",
-            sym.qualified_name, sym.start_line, sym.end_line
+            sym.qualified_name, sym.span.start.line, sym.span.end.line
         );
         println!("      supertypes: {:?}", sym.supertypes);
     }
@@ -2385,7 +2386,12 @@ fn test_flow_statement_hover_resolves_feature_chains() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -2535,7 +2541,12 @@ fn test_connection_usage_endpoint_hover() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -2657,7 +2668,12 @@ fn test_connection_patterns_comprehensive_hover() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -2796,7 +2812,12 @@ fn test_comment_about_hover() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -2907,7 +2928,12 @@ package CarWithEnvelopingShape {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -2998,7 +3024,12 @@ fn test_hover_imported_type_cross_file() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -3080,7 +3111,12 @@ package VehicleInterface {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -3172,7 +3208,12 @@ fn test_hover_event_occurrence_usage() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -3244,7 +3285,12 @@ fn test_hover_imported_type_in_message() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -3318,7 +3364,12 @@ fn test_hover_type_in_action_body_with_send_accept() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 
@@ -3440,7 +3491,7 @@ fn test_hover_type_in_cross_file_action_sequence() {
     for sym in server.all_symbols() {
         println!(
             "  {} (line {}-{})",
-            sym.qualified_name, sym.start_line, sym.end_line
+            sym.qualified_name, sym.span.start.line, sym.span.end.line
         );
     }
 
@@ -3572,7 +3623,12 @@ fn test_hover_vehicle_example() {
         println!(
             "  {} (span: {:?})",
             sym.qualified_name,
-            Some((sym.start_line, sym.start_col, sym.end_line, sym.end_col))
+            Some((
+                sym.span.start.line,
+                sym.span.start.column,
+                sym.span.end.line,
+                sym.span.end.column,
+            ))
         );
     }
 }
@@ -3632,7 +3688,7 @@ fn test_hover_type_in_vehicle_send_accept() {
     for sym in server.all_symbols() {
         println!(
             "  {} (line {}-{})",
-            sym.qualified_name, sym.start_line, sym.end_line
+            sym.qualified_name, sym.span.start.line, sym.span.end.line
         );
     }
 
@@ -4017,7 +4073,7 @@ fn test_hover_derivation_connection_references() {
     for sym in server.all_symbols() {
         println!(
             "  {} (line {}-{})",
-            sym.qualified_name, sym.start_line, sym.end_line
+            sym.qualified_name, sym.span.start.line, sym.span.end.line
         );
     }
 
@@ -4114,7 +4170,7 @@ fn test_hover_attribute_redefines_with_value() {
     for sym in server.all_symbols() {
         println!(
             "  {} (line {}-{})",
-            sym.qualified_name, sym.start_line, sym.end_line
+            sym.qualified_name, sym.span.start.line, sym.span.end.line
         );
     }
 
