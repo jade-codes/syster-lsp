@@ -135,7 +135,10 @@ impl LspServer {
             .all_symbols()
             .filter(|s| matches!(s.kind, syster::hir::SymbolKind::ViewDefinition))
             .collect();
-        info!("[Views] ViewDefinition kind symbols: {}", view_def_symbols.len());
+        info!(
+            "[Views] ViewDefinition kind symbols: {}",
+            view_def_symbols.len()
+        );
 
         for s in &view_def_symbols {
             info!(
