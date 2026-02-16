@@ -1922,7 +1922,7 @@ fn test_hover_isq_massvalue() {
 
     // Debug: Check what word is extracted
     let line = "    private import ISQ::MassValue;";
-    let extracted = syster::core::text_utils::extract_qualified_name_at_cursor(line, 23);
+    let extracted = syster::ide::text_utils::extract_qualified_name_at_cursor(line, 23);
     println!("Extracted at pos 23: {extracted:?}");
 
     // Test hover on "MassValue" in the import statement (line 1, position ~23)

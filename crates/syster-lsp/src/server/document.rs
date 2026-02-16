@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::LspServer;
 use super::helpers::apply_text_edit;
 use async_lsp::lsp_types::{TextDocumentContentChangeEvent, Url};
-use syster::core::constants::is_supported_extension;
+use syster::base::constants::is_supported_extension;
 
 impl LspServer {
     /// Apply a text change without re-parsing (fast path for debouncing)
