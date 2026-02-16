@@ -31,12 +31,12 @@ impl LspServer {
 
             let range = Range {
                 start: Position {
-                    line: symbol.span.start.line,
-                    character: symbol.span.start.column,
+                    line: symbol.start_line,
+                    character: symbol.start_col,
                 },
                 end: Position {
-                    line: symbol.span.end.line,
-                    character: symbol.span.end.column,
+                    line: symbol.end_line,
+                    character: symbol.end_col,
                 },
             };
 
@@ -102,12 +102,12 @@ impl LspServer {
                             uri,
                             range: Range {
                                 start: Position {
-                                    line: tr.span.start.line,
-                                    character: tr.span.start.column,
+                                    line: tr.start_line,
+                                    character: tr.start_col,
                                 },
                                 end: Position {
-                                    line: tr.span.end.line,
-                                    character: tr.span.end.column,
+                                    line: tr.end_line,
+                                    character: tr.end_col,
                                 },
                             },
                         })

@@ -93,10 +93,10 @@ impl LspServer {
                 .and_then(|s| s.doc.as_ref().map(|d| d.to_string())),
             container: info.container.map(|c| c.to_string()),
             ref_kind: info.type_ref.kind.display().to_string(),
-            start_line: info.type_ref.span.start.line,
-            start_col: info.type_ref.span.start.column,
-            end_line: info.type_ref.span.end.line,
-            end_col: info.type_ref.span.end.column,
+            start_line: info.type_ref.start_line,
+            start_col: info.type_ref.start_col,
+            end_line: info.type_ref.end_line,
+            end_col: info.type_ref.end_col,
         })
     }
 }

@@ -44,10 +44,10 @@ fn print_symbols_filtered(server: &mut LspServer, filter: &str) {
                 "  {} (span: {:?})",
                 sym.qualified_name,
                 Some((
-                    sym.span.start.line,
-                    sym.span.start.column,
-                    sym.span.end.line,
-                    sym.span.end.column,
+                    sym.start_line,
+                    sym.start_col,
+                    sym.end_line,
+                    sym.end_col,
                 ))
             );
         }
@@ -62,10 +62,10 @@ fn print_all_symbols(server: &mut LspServer) {
             "  {} (span: {:?})",
             sym.qualified_name,
             Some((
-                sym.span.start.line,
-                sym.span.start.column,
-                sym.span.end.line,
-                sym.span.end.column,
+                sym.start_line,
+                sym.start_col,
+                sym.end_line,
+                sym.end_col,
             ))
         );
     }

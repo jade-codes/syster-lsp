@@ -240,7 +240,6 @@ fn extract_parent(qualified_name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syster::base::Span;
 
     /// Test that DiagramSymbol serializes correctly with camelCase
     #[test]
@@ -364,8 +363,14 @@ mod tests {
             element_id: "test-id-1".into(),
             kind: SymbolKind::PartDefinition,
             file: FileId::new(0),
-            span: Span::from_coords(0, 0, 0, 10),
-            short_name_span: None,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            short_name_start_line: None,
+            short_name_start_col: None,
+            short_name_end_line: None,
+            short_name_end_col: None,
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
@@ -386,6 +391,7 @@ mod tests {
             is_portion: false,
             direction: None,
             multiplicity: None,
+            value: None,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -411,8 +417,14 @@ mod tests {
             element_id: "test-id-2".into(),
             kind: SymbolKind::PartUsage,
             file: FileId::new(0),
-            span: Span::from_coords(0, 0, 0, 10),
-            short_name_span: None,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            short_name_start_line: None,
+            short_name_start_col: None,
+            short_name_end_line: None,
+            short_name_end_col: None,
             supertypes: vec!["Engine".into()],
             relationships: Vec::new(),
             doc: None,
@@ -433,6 +445,7 @@ mod tests {
             is_portion: false,
             direction: None,
             multiplicity: None,
+            value: None,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -458,8 +471,14 @@ mod tests {
             element_id: "test-id-3".into(),
             kind: SymbolKind::Package,
             file: FileId::new(0),
-            span: Span::from_coords(0, 0, 0, 10),
-            short_name_span: None,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            short_name_start_line: None,
+            short_name_start_col: None,
+            short_name_end_line: None,
+            short_name_end_col: None,
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
@@ -480,6 +499,7 @@ mod tests {
             is_portion: false,
             direction: None,
             multiplicity: None,
+            value: None,
         };
 
         let diagram_symbol = convert_symbol_to_diagram(&symbol).unwrap();
@@ -504,8 +524,14 @@ mod tests {
             element_id: "test-id-4".into(),
             kind: SymbolKind::Alias,
             file: FileId::new(0),
-            span: Span::from_coords(0, 0, 0, 10),
-            short_name_span: None,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            short_name_start_line: None,
+            short_name_start_col: None,
+            short_name_end_line: None,
+            short_name_end_col: None,
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
@@ -526,6 +552,7 @@ mod tests {
             is_portion: false,
             direction: None,
             multiplicity: None,
+            value: None,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
@@ -543,8 +570,14 @@ mod tests {
             element_id: "test-id-5".into(),
             kind: SymbolKind::Import,
             file: FileId::new(0),
-            span: Span::from_coords(0, 0, 0, 10),
-            short_name_span: None,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 10,
+            short_name_start_line: None,
+            short_name_start_col: None,
+            short_name_end_line: None,
+            short_name_end_col: None,
             supertypes: Vec::new(),
             relationships: Vec::new(),
             doc: None,
@@ -565,6 +598,7 @@ mod tests {
             is_portion: false,
             direction: None,
             multiplicity: None,
+            value: None,
         };
 
         assert!(convert_symbol_to_diagram(&symbol).is_none());
