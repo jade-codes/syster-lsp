@@ -144,7 +144,7 @@ impl LspServer {
         // Convert to interchange model
         let model = model_from_symbols(&symbols);
         let element_count = model.elements.len();
-        let relationship_count = model.relationships.len();
+        let relationship_count = model.relationship_count();
 
         // Serialize to requested format
         let (bytes_result, extension) = match params.format.to_lowercase().as_str() {
@@ -191,7 +191,7 @@ impl LspServer {
     }
 
     /// Import and validate a model from an interchange format.
-    pub fn import_model(&self, params: &ImportModelParams) -> ImportModelResult {
+    pub fn import_model(&mut self, params: &ImportModelParams) -> ImportModelResult {
         use syster::interchange::{JsonLd, Kpar, ModelFormat, Xmi, detect_format};
 
         // Parse the URI to get the file path
@@ -256,26 +256,48 @@ impl LspServer {
                 let mut messages = Vec::new();
 
                 // Validate relationships reference existing elements
-                for rel in &model.relationships {
-                    if model.elements.get(&rel.source).is_none() {
-                        messages.push(format!(
-                            "Warning: Relationship source '{}' not found",
-                            rel.source
-                        ));
+                for rel in model.iter_relationship_elements() {
+                    if let Some(rd) = &rel.relationship {
+                        if let Some(src) = rd.source.first() {
+                            if model.elements.get(src).is_none() {
+                                messages.push(format!(
+                                    "Warning: Relationship source '{}' not found",
+                                    src
+                                ));
+                            }
+                        }
+                        if let Some(tgt) = rd.target.first() {
+                            if model.elements.get(tgt).is_none() {
+                                messages.push(format!(
+                                    "Warning: Relationship target '{}' not found",
+                                    tgt
+                                ));
+                            }
+                        }
                     }
-                    if model.elements.get(&rel.target).is_none() {
-                        messages.push(format!(
-                            "Warning: Relationship target '{}' not found",
-                            rel.target
-                        ));
-                    }
+                }
+
+                let element_count = model.elements.len();
+                let relationship_count = model.relationship_count();
+
+                // Inject the model into the analysis host so it becomes
+                // available for IDE features (go-to-definition, etc.)
+                let virtual_path = format!(
+                    "imported://{}",
+                    path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("model.sysml")
+                );
+                let parse_errors = self.analysis_host.add_model(&model, &virtual_path);
+                for err in &parse_errors {
+                    messages.push(format!("Parse warning: {}", err));
                 }
 
                 ImportModelResult {
                     success: true,
                     error: None,
-                    element_count: model.elements.len(),
-                    relationship_count: model.relationships.len(),
+                    element_count,
+                    relationship_count,
                     messages,
                 }
             }

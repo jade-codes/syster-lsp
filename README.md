@@ -4,106 +4,103 @@ Language Server Protocol implementation for SysML v2 and KerML.
 
 ## Architecture
 
-Built on top of [syster-base](../syster-base), the LSP server uses **Salsa-based incremental computation** for efficient editing:
+Built on [tower-lsp](https://github.com/ebkalderon/tower-lsp) and [syster-base](../base). The server maintains a live `AnalysisHost` that updates incrementally as files change.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      LSP Server                              │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
-│  │   Hover     │    │ Go-to-Def   │    │ Diagnostics │     │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘     │
-│         │                  │                   │            │
-│         └──────────────────┼───────────────────┘            │
-│                            ▼                                │
-│                    ┌───────────────┐                        │
-│                    │ AnalysisHost  │                        │
-│                    │ (SymbolIndex) │                        │
-│                    └───────┬───────┘                        │
-│                            │                                │
-│                            ▼                                │
-│                    ┌───────────────┐                        │
-│                    │  Salsa DB     │  ← Incremental queries │
-│                    │ (RootDatabase)│                        │
-│                    └───────────────┘                        │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         LSP Server (tower-lsp)                      │
+│                                                                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐ ┌─────────┐ │
+│  │completion│ │ goto-def │ │  hover   │ │references │ │ rename  │ │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └─────┬─────┘ └────┬────┘ │
+│       │             │            │              │            │      │
+│       └─────────────┴────────────┴──────────────┴────────────┘      │
+│                                  │                                  │
+│                                  ▼                                  │
+│                     ┌────────────────────────┐                      │
+│                     │     AnalysisHost        │                     │
+│                     │  .set_file_content()    │                     │
+│                     │  .analysis() → snapshot │                     │
+│                     └────────────┬────────────┘                     │
+│                                  │                                  │
+│                                  ▼                                  │
+│                     ┌────────────────────────┐                      │
+│                     │  Salsa RootDatabase     │                     │
+│                     │  (incremental queries)  │                     │
+│                     └────────────────────────┘                      │
+│                                                                     │
+│  ┌──────────────────┐  ┌──────────────────┐                        │
+│  │ background_tasks │  │  interchange     │  (feature-gated)       │
+│  │ • diagnostics    │  │  • export/import │                        │
+│  │ • indexing       │  │  • diagram data  │                        │
+│  └──────────────────┘  └──────────────────┘                        │
+└─────────────────────────────────────────────────────────────────────┘
+          ↕ stdio / JSON-RPC
+┌─────────────────────────────────────────────────────────────────────┐
+│  VS Code (language-client extension)                                │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key benefits:**
-- **Incremental**: Only changed files are re-parsed
-- **Memoized**: Queries cached automatically
-- **Fast**: `FileId` (4 bytes) enables O(1) file lookups
+**Design:**
+- Each LSP request calls the corresponding function in syster-base's `ide` module
+- `AnalysisHost` is the mutable owner; `.analysis()` returns a read-only snapshot for concurrent reads
+- Salsa ensures only affected queries recompute when a file changes
+- Background tasks handle diagnostics publishing and workspace indexing
 
-## Components
+## Server Modules
 
-- `crates/syster-lsp` - Rust LSP server binary
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| Syntax highlighting | Semantic tokens for SysML/KerML keywords, types, etc. |
-| Code completion | Context-aware completions for definitions, usages, imports |
-| Go to definition | Jump to symbol definitions |
-| Find references | Find all usages of a symbol |
-| Hover documentation | Type info, documentation, qualified names |
-| Document outline | Hierarchical symbol tree |
-| Code formatting | Auto-format SysML/KerML files |
-| Semantic tokens | Rich syntax highlighting |
-| Inlay hints | Inline type annotations |
-| Folding ranges | Collapse code blocks |
-| Document links | Clickable imports and type references |
-| Diagnostics | Parse errors + semantic errors (undefined refs, duplicates, etc.) |
-| Code lens | Inline reference counts |
-| Rename | Rename symbols across workspace |
-| Workspace symbols | Search symbols across all files |
+| Module | LSP Feature(s) |
+|--------|----------------|
+| `completion.rs` | `textDocument/completion` — context-aware completions |
+| `definition.rs` | `textDocument/definition` — jump to symbol definition |
+| `type_definition.rs` | `textDocument/typeDefinition` — jump to type |
+| `hover.rs` | `textDocument/hover` — type info, docs, qualified names |
+| `references.rs` | `textDocument/references` — find all usages |
+| `rename.rs` | `textDocument/rename` — rename symbols across workspace |
+| `document_symbols.rs` | `textDocument/documentSymbol` — hierarchical outline |
+| `workspace_symbols.rs` | `workspace/symbol` — search symbols across files |
+| `semantic_tokens.rs` | `textDocument/semanticTokens` — rich syntax highlighting |
+| `inlay_hints.rs` | `textDocument/inlayHint` — inline type annotations |
+| `folding_ranges.rs` | `textDocument/foldingRange` — collapsible regions |
+| `selection_range.rs` | `textDocument/selectionRange` — expand/shrink selection |
+| `document_links.rs` | `textDocument/documentLink` — clickable imports/refs |
+| `formatting.rs` | `textDocument/formatting` — auto-format SysML/KerML |
+| `diagnostics.rs` | `textDocument/publishDiagnostics` — errors + warnings |
+| `code_lens.rs` | `textDocument/codeLens` — inline reference counts |
+| `diagram.rs` | Custom — diagram data for modeller/viewer extensions |
+| `interchange.rs` | Custom — export/import commands (feature-gated) |
+| `views.rs` | Custom — element view data for extensions |
 
 ## Building
 
 ```bash
+# Debug build
+cargo build -p syster-lsp
+
+# Release build
 cargo build --release -p syster-lsp
-```
 
-## Usage
-
-The LSP server binary can be used with any editor that supports the Language Server Protocol.
-
-For VS Code integration, see the [vscode-lsp extension](https://github.com/jade-codes/syster/tree/main/editors/vscode-lsp).
-
-## License
-
-MIT
-
-## Development
-
-### DevContainer Setup (Recommended)
-
-This project includes a DevContainer configuration for a consistent development environment.
-
-**Using VS Code:**
-1. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-2. Open this repository in VS Code
-3. Click "Reopen in Container" when prompted (or use Command Palette: "Dev Containers: Reopen in Container")
-
-**What's included:**
-- Rust 1.85+ with 2024 edition
-- rust-analyzer, clippy
-- GitHub CLI
-- All VS Code extensions pre-configured
-
-### Manual Setup
-
-If not using DevContainer:
-
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Build the LSP server
-cargo build --release -p syster-lsp
+# With interchange support
+cargo build --release -p syster-lsp --features interchange
 
 # Run tests
-cargo test --release -p syster-lsp
+cargo test -p syster-lsp
 
 # Run clippy
 cargo clippy -p syster-lsp -- -D warnings
 ```
+
+## Usage
+
+The server binary communicates over stdio using JSON-RPC. Any LSP-compatible editor can use it.
+
+For VS Code, install the [language-client](../language-client) extension which spawns the server automatically.
+
+```bash
+# Manual launch (for other editors)
+syster-lsp --stdio
+```
+
+## License
+
+MIT

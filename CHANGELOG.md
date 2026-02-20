@@ -5,6 +5,20 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-alpha] - 2026-02-20
+
+### Changed
+
+- **syster-base**: Updated to v0.4.0-alpha (relationship unification, semantic views, change tracking)
+- **Import model**: `import_model` now injects the imported model into the `AnalysisHost` so IDE features (hover, go-to-definition) work on imported interchange files
+- Migrated from `model.relationships` to `model.iter_relationship_elements()` / `model.relationship_count()` following relationship unification in base
+- Refactored imports from `syster::core` to canonical module paths
+- Migrated position handling from `Span` struct to inline position fields
+
+### Fixed
+
+- Updated `import_model` signature to `&mut self` to allow host mutation on import
+
 ## [0.3.5-alpha] - 2026-02-11
 
 ### Changed
