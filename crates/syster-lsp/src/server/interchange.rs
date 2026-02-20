@@ -258,21 +258,17 @@ impl LspServer {
                 // Validate relationships reference existing elements
                 for rel in model.iter_relationship_elements() {
                     if let Some(rd) = &rel.relationship {
-                        if let Some(src) = rd.source.first() {
-                            if model.elements.get(src).is_none() {
-                                messages.push(format!(
-                                    "Warning: Relationship source '{}' not found",
-                                    src
-                                ));
-                            }
+                        if let Some(src) = rd.source.first()
+                            && model.elements.get(src).is_none()
+                        {
+                            messages
+                                .push(format!("Warning: Relationship source '{}' not found", src));
                         }
-                        if let Some(tgt) = rd.target.first() {
-                            if model.elements.get(tgt).is_none() {
-                                messages.push(format!(
-                                    "Warning: Relationship target '{}' not found",
-                                    tgt
-                                ));
-                            }
+                        if let Some(tgt) = rd.target.first()
+                            && model.elements.get(tgt).is_none()
+                        {
+                            messages
+                                .push(format!("Warning: Relationship target '{}' not found", tgt));
                         }
                     }
                 }

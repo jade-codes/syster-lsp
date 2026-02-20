@@ -1,12 +1,12 @@
 use async_lsp::lsp_types::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use syster::syntax::ParseError;
 use syster::base::constants::{
     COMPLETION_TRIGGERS, LSP_SERVER_NAME, LSP_SERVER_VERSION, OPT_STDLIB_ENABLED, OPT_STDLIB_PATH,
 };
 use syster::ide::AnalysisHost;
 use syster::project::{StdLibLoader, WorkspaceLoader};
+use syster::syntax::ParseError;
 use tokio_util::sync::CancellationToken;
 
 /// LspServer manages the workspace state for the LSP server
