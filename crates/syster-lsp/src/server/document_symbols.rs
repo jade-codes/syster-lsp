@@ -118,8 +118,10 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::ConstraintDefinition
         | HirSymbolKind::StateDefinition
         | HirSymbolKind::CalculationDefinition
+        | HirSymbolKind::OccurrenceDefinition
         | HirSymbolKind::UseCaseDefinition
         | HirSymbolKind::AnalysisCaseDefinition
+        | HirSymbolKind::VerificationCaseDefinition
         | HirSymbolKind::ConcernDefinition
         | HirSymbolKind::ViewDefinition
         | HirSymbolKind::ViewpointDefinition
@@ -150,6 +152,15 @@ fn convert_symbol_kind(kind: HirSymbolKind) -> SymbolKind {
         | HirSymbolKind::CalculationUsage
         | HirSymbolKind::ReferenceUsage
         | HirSymbolKind::OccurrenceUsage
+        | HirSymbolKind::PerformActionUsage
+        | HirSymbolKind::SatisfyRequirementUsage
+        | HirSymbolKind::AssertConstraintUsage
+        | HirSymbolKind::ExhibitStateUsage
+        | HirSymbolKind::UseCaseUsage
+        | HirSymbolKind::IncludeUseCaseUsage
+        | HirSymbolKind::AnalysisCaseUsage
+        | HirSymbolKind::VerificationCaseUsage
+        | HirSymbolKind::SuccessionUsage
         | HirSymbolKind::FlowConnectionUsage
         | HirSymbolKind::ViewUsage
         | HirSymbolKind::ViewpointUsage
