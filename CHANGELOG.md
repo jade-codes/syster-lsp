@@ -5,6 +5,14 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1-alpha] - 2026-06-09
+
+### Changed
+
+- **syster-base**: Updated to v0.4.1-alpha (conditional constraint invocation, unified short-form relationship edges, accept state, view def edges, byte-stable XMI round-trips)
+  - Handle the new `SymbolKind` variants (`OccurrenceDefinition`, `VerificationCaseDefinition`, `PerformActionUsage`, `SatisfyRequirementUsage`, `AssertConstraintUsage`, `ExhibitStateUsage`, `UseCaseUsage`, `IncludeUseCaseUsage`, `AnalysisCaseUsage`, `VerificationCaseUsage`, `SuccessionUsage`) in the document/workspace symbol and diagram mappings
+  - Populate the new `HirSymbol.is_composite` field in diagram test fixtures
+
 ## [0.4.0-alpha] - 2026-02-20
 
 ### Changed
