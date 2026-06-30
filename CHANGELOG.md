@@ -5,6 +5,14 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2-alpha] - 2026-06-30
+
+### Changed
+
+- **syster-base**: Updated to v0.4.2-alpha (from crates.io)
+  - Fixes a false-positive `undefined reference` (E0001) on members inherited through a SemanticMetadata `baseType` implicit specialization (e.g. `:> ServiceMethod` inside a `#systemdd`-annotated element)
+  - Includes three parser fixes from base #25 (`to` as a feature name, `actor def` definitions, prefix metadata with a body before a member)
+
 ## [0.4.1-alpha] - 2026-06-09
 
 ### Changed
