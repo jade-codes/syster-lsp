@@ -5,6 +5,16 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1-alpha] - 2026-07-07
+
+### Changed
+
+- **syster-base**: Updated to v0.5.1-alpha — a large batch of language features (v0.5.0: union/exists/infinity expressions, timing, control nodes `fork`/`join`/`merge`/`decide`, specific definition/usage node kinds, user-defined keywords & `actor def`, explicit Null/Empty types, first-class flow payload, filter brackets, concern references, parallel state; parser internals Pest→Rowan), plus the v0.5.1 fix restoring flow-payload type references.
+
+### Fixed
+
+- **Flow-statement hover** now resolves the `of <PayloadType>` payload type again (e.g. `flow of Exposure from focus.xrsl to shoot.xsf`), via the syster-base v0.5.1-alpha fix.
+
 ## [0.4.2-alpha] - 2026-06-30
 
 ### Changed
