@@ -5,6 +5,14 @@ All notable changes to syster-lsp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2-alpha] - 2026-07-08
+
+### Fixed
+
+- **Diagram edges** now render instead of silently disappearing. `syster/getDiagram` previously emitted only `typing` edges whose target was a supertype *name* that was rarely a node on the canvas, so React Flow dropped every edge (it discards edges whose source/target node is absent). Edges are now built after the node set is known and resolved against it:
+  - **Containment** (`membership`) edges are emitted for each `parent → child` pair where the parent is itself a rendered node, giving the General View a visible structural tree.
+  - **Typing** edges are emitted only when the type resolves to an on-canvas node — matching the exact qualified name first, then falling back to the simple name (since `supertypes` are usually short names) — and self-edges are skipped.
+
 ## [0.5.1-alpha] - 2026-07-07
 
 ### Changed

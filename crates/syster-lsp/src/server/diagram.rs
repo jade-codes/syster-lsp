@@ -91,48 +91,243 @@ pub struct DiagramRelationship {
     pub target: String,
 }
 
-/// Complete diagram data response
+/// Complete diagram data response.
+///
+/// When `error` is `Some`, the view could not be rendered and `symbols`/
+/// `relationships` are empty. The frontend must surface the error rather than
+/// render an empty or fallback diagram — a view that cannot be applied is an
+/// error the user needs to see, not something to paper over.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagramData {
     pub symbols: Vec<DiagramSymbol>,
     pub relationships: Vec<DiagramRelationship>,
     pub view_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<DiagramError>,
+}
+
+/// A structured, surfaceable error explaining why a view could not be rendered.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagramError {
+    /// Machine-readable kind: "UnsupportedView" | "UnknownView" | "NoFile".
+    pub kind: String,
+    /// Human-readable message for display in the webview.
+    pub message: String,
+}
+
+/// The view kinds this build can actually render. Anything else is reported as
+/// an error instead of being silently rendered as a generic graph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ViewKind {
+    General,
+    Interconnection,
+    Browser,
+}
+
+/// Resolve a requested view type (accepting either a display/full name like
+/// "GeneralView"/"InterconnectionView"/"BrowserView" or a stdlib short name
+/// like "gv"/"iv"/"bv") to a renderable [`ViewKind`], or a [`DiagramError`]
+/// explaining why it cannot be rendered.
+///
+/// Known-but-unimplemented standard views (Action Flow, State Transition,
+/// Sequence, Geometry, Grid) return `UnsupportedView`; anything unrecognized
+/// returns `UnknownView`. There is intentionally **no** silent fallback.
+fn resolve_view_kind(view_type: &str) -> Result<ViewKind, DiagramError> {
+    let short = view_type.rsplit("::").next().unwrap_or(view_type);
+    match short {
+        "GeneralView" | "gv" => Ok(ViewKind::General),
+        "InterconnectionView" | "iv" => Ok(ViewKind::Interconnection),
+        "BrowserView" | "bv" => Ok(ViewKind::Browser),
+        "ActionFlowView" | "afv" | "StateTransitionView" | "stv" | "SequenceView" | "sv"
+        | "GeometryView" | "gev" | "GridView" | "grv" => Err(DiagramError {
+            kind: "UnsupportedView".to_string(),
+            message: format!(
+                "The '{view_type}' view is a recognized SysML v2 standard view but is not yet \
+                 supported by this diagram renderer. Supported views: General View, \
+                 Interconnection View, Browser View."
+            ),
+        }),
+        _ => Err(DiagramError {
+            kind: "UnknownView".to_string(),
+            message: format!(
+                "Unknown view '{view_type}'. Expected a SysML v2 standard view \
+                 (General View, Interconnection View, or Browser View)."
+            ),
+        }),
+    }
+}
+
+/// Whether a symbol is included as a node under the given view kind.
+///
+/// Mirrors the intent of the SysML v2 StandardViewDefinitions: General shows
+/// everything, Interconnection shows structural usages + connectors,
+/// Browser shows the membership hierarchy (packages, definitions, usages).
+fn symbol_passes_view(kind: SymbolKind, view: ViewKind) -> bool {
+    match view {
+        ViewKind::General => true,
+        ViewKind::Interconnection => matches!(
+            kind,
+            SymbolKind::PartUsage
+                | SymbolKind::PortUsage
+                | SymbolKind::InterfaceUsage
+                | SymbolKind::ConnectionUsage
+                | SymbolKind::FlowConnectionUsage
+                | SymbolKind::AllocationUsage
+        ),
+        ViewKind::Browser => matches!(
+            kind,
+            SymbolKind::Package
+                | SymbolKind::PartDefinition
+                | SymbolKind::PartUsage
+                | SymbolKind::ItemDefinition
+                | SymbolKind::ItemUsage
+                | SymbolKind::ActionDefinition
+                | SymbolKind::ActionUsage
+                | SymbolKind::StateDefinition
+                | SymbolKind::StateUsage
+                | SymbolKind::RequirementDefinition
+                | SymbolKind::RequirementUsage
+                | SymbolKind::ConstraintDefinition
+                | SymbolKind::ConstraintUsage
+                | SymbolKind::AttributeUsage
+                | SymbolKind::PortUsage
+                | SymbolKind::ViewDefinition
+                | SymbolKind::ViewpointDefinition
+        ),
+    }
 }
 
 impl LspServer {
     /// Get diagram data for the workspace or a specific file.
     /// Returns raw symbol data - presentation logic belongs in the frontend.
     pub fn get_diagram(&mut self, file_path: Option<&Path>, view_type: &str) -> DiagramData {
-        let mut symbols = Vec::new();
-        let mut relationships = Vec::new();
-
-        let analysis = self.analysis_host.analysis();
-
-        // Collect symbols based on file path or whole workspace
-        let symbol_iter: Box<dyn Iterator<Item = &HirSymbol>> = if let Some(path) = file_path {
-            let path_str = path.to_string_lossy();
-            if let Some(file_id) = analysis.get_file_id(&path_str) {
-                Box::new(analysis.symbol_index().symbols_in_file(file_id).into_iter())
-            } else {
-                Box::new(std::iter::empty())
+        // Resolve the requested view up front. An unsupported/unknown view is a
+        // surfaceable error, not a reason to render a generic fallback graph.
+        let view_kind = match resolve_view_kind(view_type) {
+            Ok(k) => k,
+            Err(error) => {
+                return DiagramData {
+                    symbols: Vec::new(),
+                    relationships: Vec::new(),
+                    view_type: view_type.to_string(),
+                    error: Some(error),
+                };
             }
-        } else {
-            Box::new(analysis.symbol_index().all_symbols())
         };
 
-        // Convert all symbols - frontend decides how to display them
-        for symbol in symbol_iter {
-            if let Some(diagram_symbol) = convert_symbol_to_diagram(symbol) {
-                // Extract typing relationship from the symbol itself
-                if let Some(ref typed_by) = diagram_symbol.typed_by {
-                    relationships.push(DiagramRelationship {
-                        rel_type: "typing".to_string(),
-                        source: diagram_symbol.qualified_name.clone(),
-                        target: typed_by.clone(),
-                    });
+        let analysis = self.analysis_host.analysis();
+        let index = analysis.symbol_index();
+
+        // Candidate symbols: a specific file, or the whole workspace.
+        let candidates: Vec<&HirSymbol> = if let Some(path) = file_path {
+            let path_str = path.to_string_lossy();
+            match analysis.get_file_id(&path_str) {
+                Some(file_id) => index.symbols_in_file(file_id),
+                None => {
+                    return DiagramData {
+                        symbols: Vec::new(),
+                        relationships: Vec::new(),
+                        view_type: view_type.to_string(),
+                        error: Some(DiagramError {
+                            kind: "NoFile".to_string(),
+                            message: format!(
+                                "No parsed document found for '{path_str}'. Open/save the file \
+                                 before requesting its diagram."
+                            ),
+                        }),
+                    };
+                }
+            }
+        } else {
+            index.all_symbols().collect()
+        };
+
+        // Build a parent -> feature-strings map from the FULL candidate set, so
+        // a node's attributes/ports/parameters show as features even when the
+        // active view would not surface them as standalone nodes.
+        let mut features_by_parent: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for symbol in &candidates {
+            if matches!(
+                symbol.kind,
+                SymbolKind::AttributeUsage
+                    | SymbolKind::PortUsage
+                    | SymbolKind::ReferenceUsage
+            ) {
+                if let Some(parent) = extract_parent(&symbol.qualified_name) {
+                    let label = match symbol.supertypes.first() {
+                        Some(ty) => format!("{}: {}", symbol.name, ty),
+                        None => symbol.name.to_string(),
+                    };
+                    features_by_parent.entry(parent).or_default().push(label);
+                }
+            }
+        }
+
+        let mut symbols = Vec::new();
+
+        for symbol in &candidates {
+            if !symbol_passes_view(symbol.kind, view_kind) {
+                continue;
+            }
+            if let Some(mut diagram_symbol) = convert_symbol_to_diagram(symbol) {
+                if let Some(feats) = features_by_parent.get(&diagram_symbol.qualified_name) {
+                    diagram_symbol.features = Some(feats.clone());
                 }
                 symbols.push(diagram_symbol);
+            }
+        }
+
+        // Edges are built only *after* the node set is known: React Flow silently
+        // drops any edge whose source or target is not a rendered node, so an edge
+        // to an off-canvas element (e.g. a type defined in another file) is not an
+        // edge worth emitting. Resolve every relationship against these nodes.
+        let node_names: std::collections::HashSet<&str> =
+            symbols.iter().map(|s| s.qualified_name.as_str()).collect();
+        // Index nodes by their simple (last-segment) name so a `typed_by` reference
+        // like "Engine" can resolve to a rendered node "Pkg::Engine" when present.
+        // `supertypes` are typically short names, not fully-qualified paths.
+        let mut nodes_by_simple: std::collections::HashMap<&str, &str> =
+            std::collections::HashMap::new();
+        for s in &symbols {
+            let simple = s.qualified_name.rsplit("::").next().unwrap_or(&s.qualified_name);
+            nodes_by_simple.entry(simple).or_insert(s.qualified_name.as_str());
+        }
+
+        let mut relationships = Vec::new();
+        for s in &symbols {
+            // Containment: parent -> child, emitted only when the parent is itself
+            // a rendered node. These endpoints always exist, so the edge renders.
+            if let Some(parent) = s.parent.as_deref() {
+                if node_names.contains(parent) {
+                    relationships.push(DiagramRelationship {
+                        rel_type: "membership".to_string(),
+                        source: parent.to_string(),
+                        target: s.qualified_name.clone(),
+                    });
+                }
+            }
+            // Typing: usage -> its type, emitted only when the type resolves to a
+            // rendered node. Match the exact qualified name first, then fall back to
+            // the simple name; skip self-edges and unresolved (off-canvas) types.
+            if let Some(typed_by) = s.typed_by.as_deref() {
+                let target = if node_names.contains(typed_by) {
+                    Some(typed_by.to_string())
+                } else {
+                    let simple = typed_by.rsplit("::").next().unwrap_or(typed_by);
+                    nodes_by_simple.get(simple).map(|q| q.to_string())
+                };
+                if let Some(target) = target {
+                    if target != s.qualified_name {
+                        relationships.push(DiagramRelationship {
+                            rel_type: "typing".to_string(),
+                            source: s.qualified_name.clone(),
+                            target,
+                        });
+                    }
+                }
             }
         }
 
@@ -140,6 +335,7 @@ impl LspServer {
             symbols,
             relationships,
             view_type: view_type.to_string(),
+            error: None,
         }
     }
 }
@@ -318,6 +514,7 @@ mod tests {
                 target: "Pkg::B".to_string(),
             }],
             view_type: "GeneralView".to_string(),
+            error: None,
         };
 
         let json = serde_json::to_string(&data).unwrap();
@@ -330,6 +527,38 @@ mod tests {
             "Should include viewType in camelCase: {}",
             json
         );
+    }
+
+    #[test]
+    fn test_resolve_view_kind_supported() {
+        assert_eq!(resolve_view_kind("GeneralView").unwrap(), ViewKind::General);
+        assert_eq!(resolve_view_kind("gv").unwrap(), ViewKind::General);
+        assert_eq!(
+            resolve_view_kind("InterconnectionView").unwrap(),
+            ViewKind::Interconnection
+        );
+        assert_eq!(resolve_view_kind("iv").unwrap(), ViewKind::Interconnection);
+        assert_eq!(resolve_view_kind("BrowserView").unwrap(), ViewKind::Browser);
+        // Accepts qualified stdlib names too.
+        assert_eq!(
+            resolve_view_kind("StandardViewDefinitions::bv").unwrap(),
+            ViewKind::Browser
+        );
+    }
+
+    #[test]
+    fn test_resolve_view_kind_unsupported_is_error_not_fallback() {
+        // Known standard views we don't render yet must error, never fall back.
+        for v in ["ActionFlowView", "afv", "SequenceView", "GridView", "GeometryView"] {
+            let err = resolve_view_kind(v).expect_err("should be an error");
+            assert_eq!(err.kind, "UnsupportedView", "view {v}");
+        }
+    }
+
+    #[test]
+    fn test_resolve_view_kind_unknown_is_error() {
+        let err = resolve_view_kind("BogusView").expect_err("should be an error");
+        assert_eq!(err.kind, "UnknownView");
     }
 
     /// Test that GetDiagramParams deserializes with default view_type
