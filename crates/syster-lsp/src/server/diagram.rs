@@ -140,8 +140,16 @@ fn resolve_view_kind(view_type: &str) -> Result<ViewKind, DiagramError> {
         "GeneralView" | "gv" => Ok(ViewKind::General),
         "InterconnectionView" | "iv" => Ok(ViewKind::Interconnection),
         "BrowserView" | "bv" => Ok(ViewKind::Browser),
-        "ActionFlowView" | "afv" | "StateTransitionView" | "stv" | "SequenceView" | "sv"
-        | "GeometryView" | "gev" | "GridView" | "grv" => Err(DiagramError {
+        "ActionFlowView"
+        | "afv"
+        | "StateTransitionView"
+        | "stv"
+        | "SequenceView"
+        | "sv"
+        | "GeometryView"
+        | "gev"
+        | "GridView"
+        | "grv" => Err(DiagramError {
             kind: "UnsupportedView".to_string(),
             message: format!(
                 "The '{view_type}' view is a recognized SysML v2 standard view but is not yet \
@@ -252,17 +260,14 @@ impl LspServer {
         for symbol in &candidates {
             if matches!(
                 symbol.kind,
-                SymbolKind::AttributeUsage
-                    | SymbolKind::PortUsage
-                    | SymbolKind::ReferenceUsage
-            ) {
-                if let Some(parent) = extract_parent(&symbol.qualified_name) {
-                    let label = match symbol.supertypes.first() {
-                        Some(ty) => format!("{}: {}", symbol.name, ty),
-                        None => symbol.name.to_string(),
-                    };
-                    features_by_parent.entry(parent).or_default().push(label);
-                }
+                SymbolKind::AttributeUsage | SymbolKind::PortUsage | SymbolKind::ReferenceUsage
+            ) && let Some(parent) = extract_parent(&symbol.qualified_name)
+            {
+                let label = match symbol.supertypes.first() {
+                    Some(ty) => format!("{}: {}", symbol.name, ty),
+                    None => symbol.name.to_string(),
+                };
+                features_by_parent.entry(parent).or_default().push(label);
             }
         }
 
@@ -292,22 +297,28 @@ impl LspServer {
         let mut nodes_by_simple: std::collections::HashMap<&str, &str> =
             std::collections::HashMap::new();
         for s in &symbols {
-            let simple = s.qualified_name.rsplit("::").next().unwrap_or(&s.qualified_name);
-            nodes_by_simple.entry(simple).or_insert(s.qualified_name.as_str());
+            let simple = s
+                .qualified_name
+                .rsplit("::")
+                .next()
+                .unwrap_or(&s.qualified_name);
+            nodes_by_simple
+                .entry(simple)
+                .or_insert(s.qualified_name.as_str());
         }
 
         let mut relationships = Vec::new();
         for s in &symbols {
             // Containment: parent -> child, emitted only when the parent is itself
             // a rendered node. These endpoints always exist, so the edge renders.
-            if let Some(parent) = s.parent.as_deref() {
-                if node_names.contains(parent) {
-                    relationships.push(DiagramRelationship {
-                        rel_type: "membership".to_string(),
-                        source: parent.to_string(),
-                        target: s.qualified_name.clone(),
-                    });
-                }
+            if let Some(parent) = s.parent.as_deref()
+                && node_names.contains(parent)
+            {
+                relationships.push(DiagramRelationship {
+                    rel_type: "membership".to_string(),
+                    source: parent.to_string(),
+                    target: s.qualified_name.clone(),
+                });
             }
             // Typing: usage -> its type, emitted only when the type resolves to a
             // rendered node. Match the exact qualified name first, then fall back to
@@ -319,14 +330,14 @@ impl LspServer {
                     let simple = typed_by.rsplit("::").next().unwrap_or(typed_by);
                     nodes_by_simple.get(simple).map(|q| q.to_string())
                 };
-                if let Some(target) = target {
-                    if target != s.qualified_name {
-                        relationships.push(DiagramRelationship {
-                            rel_type: "typing".to_string(),
-                            source: s.qualified_name.clone(),
-                            target,
-                        });
-                    }
+                if let Some(target) = target
+                    && target != s.qualified_name
+                {
+                    relationships.push(DiagramRelationship {
+                        rel_type: "typing".to_string(),
+                        source: s.qualified_name.clone(),
+                        target,
+                    });
                 }
             }
         }
@@ -549,7 +560,13 @@ mod tests {
     #[test]
     fn test_resolve_view_kind_unsupported_is_error_not_fallback() {
         // Known standard views we don't render yet must error, never fall back.
-        for v in ["ActionFlowView", "afv", "SequenceView", "GridView", "GeometryView"] {
+        for v in [
+            "ActionFlowView",
+            "afv",
+            "SequenceView",
+            "GridView",
+            "GeometryView",
+        ] {
             let err = resolve_view_kind(v).expect_err("should be an error");
             assert_eq!(err.kind, "UnsupportedView", "view {v}");
         }
